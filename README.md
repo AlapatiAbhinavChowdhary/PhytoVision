@@ -1,4 +1,4 @@
-# PhytoVision AI — Explainable Plant Disease Classifier 🌿
+# PhytoVision AI — Explainable Plant-leaf Disease Classifier 🌿
 
 PhytoVision AI is a full-stack, deep learning-powered plant pathology diagnostic web application with Explainable AI (XAI). It uses an **EfficientNetB0** model fine-tuned on the PlantVillage dataset across 38 crop disease classes, computing visual **Grad-CAM** saliency maps and quantitative **faithfulness reliability scores** using pixel masking.
 
