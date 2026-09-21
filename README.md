@@ -1,6 +1,6 @@
-# PhytoVision AI — Explainable Plant-leaf Disease Classifier 🌿
+# PhytoVision AI — Plant Health Diagnosis 🌿
 
-PhytoVision AI is a full-stack, deep learning-powered plant pathology diagnostic web application with Explainable AI (XAI). It uses an **EfficientNetB0** model fine-tuned on the PlantVillage dataset across 38 crop disease classes, computing visual **Grad-CAM** saliency maps and quantitative **faithfulness reliability scores** using pixel masking.
+PhytoVision AI is a full-stack plant pathology application. Upload a leaf image or choose a realistic preloaded sample to classify it across 38 PlantVillage crop and disease classes, inspect the visual focus behind the result, and read practical care guidance.
 
 ---
 
@@ -9,9 +9,9 @@ PhytoVision AI is a full-stack, deep learning-powered plant pathology diagnostic
 - **Backend (`/backend`)**:
   - **Framework**: FastAPI (Python 3.12)
   - **Inference Engine**: TensorFlow / Keras 3 with fine-tuned EfficientNetB0 (`backend/models/best_model_final.keras`)
-  - **Explainability (XAI)**:
-    - Grad-CAM on the backbone's last convolutional layer (`top_conv`).
-    - Faithfulness Score: Evaluates deletion of top 30% activated regions: `(original_confidence - masked_confidence)`.
+   - **Visual evidence**:
+      - Produces a visual focus overlay from the backbone's last convolutional layer (`top_conv`).
+      - Compares confidence before and after masking highlighted regions to provide an evidence score.
   - **Pathology Knowledge Base**: Layman explanations, practical recommended actions, and severity ratings for all 38 classes.
   - **Endpoints**:
     - `POST /predict`: Upload image, get predicted class, host crop, confidence, and top-3 candidates.
@@ -24,14 +24,15 @@ PhytoVision AI is a full-stack, deep learning-powered plant pathology diagnostic
   - **Framework**: React + Vite + Tailwind CSS + Lucide Icons
   - **UI/UX**:
     - Drag-and-drop file uploader with live preview and validation.
-    - 6 preloaded quick-try sample cards (`Tomato Late Blight`, `Tomato Healthy`, `Apple Scab`, `Corn Rust`, `Bell Pepper Bacterial Spot`, `Grape Black Rot`).
-    - Side-by-side visual comparison between original leaf and Grad-CAM attention overlay.
+   - 6 authentic PlantVillage sample cards (`Tomato Late Blight`, `Tomato Healthy`, `Apple Scab`, `Corn Rust`, `Bell Pepper Bacterial Spot`, `Grape Black Rot`).
+   - Side-by-side comparison between the uploaded leaf and its visual focus overlay.
     - Color-coded circular confidence gauge (>85% green, 60–85% yellow, <60% red).
     - Low-confidence warning banner (<65%) suggesting alternate predictions.
-    - Faithfulness trust badge with interactive explanation tooltip.
+   - Evidence score badge with an interactive measurement tooltip.
     - Plain-language disease impact and practical treatment advice.
     - Positive reassurance card for healthy foliage.
-    - Top 3 candidate probability breakdown bars.
+   - Top 3 candidate probability breakdown bars.
+   - Translucent liquid-glass interface with a real foliage background image.
 
 ---
 
@@ -167,6 +168,21 @@ The repository includes `render.yaml` for a two-service Render Blueprint:
 In Render, choose **New > Blueprint**, connect this repository, and apply the Blueprint. The backend model file under `backend/models/` is included in the repository and is loaded during service startup. The frontend uses the local API URL when developing locally and the Render backend URL after deployment.
 
 For a manually created backend service, leave **Root Directory** empty and add this environment variable: `PYTHON_VERSION=3.12.8`. Render uses this variable to select Python; `render.yaml` is only applied when deploying as a Blueprint. Use `pip install -r backend/requirements.txt` as the build command and `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` as the start command.
+
+## Deploying the Frontend to Vercel
+
+The recommended production setup hosts the FastAPI model service on Render and the React frontend on Vercel.
+
+In Vercel, import this repository and use:
+
+- **Framework preset**: Vite
+- **Root directory**: `frontend`
+- **Build command**: `npm run build`
+- **Output directory**: `dist`
+- **Install command**: `npm install`
+- **Environment variable**: `VITE_API_URL=https://phytovision-1.onrender.com`
+
+The frontend includes authentic PlantVillage crop images in `frontend/public/samples/` and a botanical background image at `frontend/public/leaf-background.jpg`. The interface uses translucent liquid-glass panels so the foliage remains visible behind the application.
 
 ---
 
