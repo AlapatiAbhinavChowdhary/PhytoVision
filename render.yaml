@@ -3,6 +3,7 @@ services:
     name: phytovision-api
     runtime: python
     plan: free
+    rootDir: .
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
@@ -13,6 +14,7 @@ services:
   - type: web
     name: phytovision-frontend
     runtime: static
+    rootDir: .
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: frontend/dist
     envVars:

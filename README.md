@@ -161,10 +161,12 @@ To verify backend inference, Grad-CAM on `top_conv`, and HTTP endpoints:
 
 The repository includes `render.yaml` for a two-service Render Blueprint:
 
-- `phytovision-api`: Python 3.12 FastAPI service running on Uvicorn.
+- `phytovision-api`: Python 3.12 FastAPI service running on Uvicorn from the repository root.
 - `phytovision-frontend`: Static Vite build configured automatically with the backend service host.
 
 In Render, choose **New > Blueprint**, connect this repository, and apply the Blueprint. The backend model file under `backend/models/` is included in the repository and is loaded during service startup. The frontend uses the local API URL when developing locally and the Render backend URL after deployment.
+
+For a manually created backend service, leave **Root Directory** empty. Use `3.12.8` as the Python version, `pip install -r backend/requirements.txt` as the build command, and `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` as the start command.
 
 ---
 
