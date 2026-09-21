@@ -149,7 +149,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8faf8]">
+    <div className="min-h-screen flex flex-col glass-shell">
       {/* Top Navigation */}
       <Navbar isBackendOnline={isBackendOnline} />
 
@@ -160,19 +160,19 @@ export default function App() {
         <div className="text-center max-w-2xl mx-auto mb-8">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
             <Leaf className="w-3.5 h-3.5" />
-            <span>AI Plant Pathology + Explainable AI (XAI)</span>
+            <span>Plant pathology intelligence</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-stone-900 tracking-tight leading-tight">
             Diagnose Crop Diseases with <span className="text-emerald-700 underline decoration-emerald-300">Visual Evidence</span>
           </h1>
           <p className="text-sm text-stone-600 mt-2.5 leading-relaxed">
-            Upload an affected leaf or pick a test sample below. Our model predicts across 38 crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
+            Upload an affected leaf or pick a test sample below. PhytoVision compares your image across 38 crop disease categories and surfaces the visual evidence behind its result.
           </p>
         </div>
 
         {/* Backend offline warning if server unreachable */}
         {!isBackendOnline && (
-          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+          <div className="glass-panel mb-6 p-4 rounded-2xl bg-amber-50/45 border-amber-200/70 text-amber-900 text-xs flex items-center justify-between">
             <div className="flex items-center space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
@@ -226,7 +226,7 @@ export default function App() {
         {/* 3. Loading Skeleton */}
         {isLoading && <LoadingState />}
 
-        {/* 4. Diagnostic & Explanation Results */}
+        {/* 4. Diagnostic Results */}
         {prediction && !isLoading && (
           <div id="results-section">
             <ResultCard
@@ -241,7 +241,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-stone-200 bg-white py-6 text-center text-xs text-stone-500">
+      <footer className="glass-panel border-x-0 border-b-0 rounded-t-3xl py-6 text-center text-xs text-stone-500">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
@@ -251,7 +251,7 @@ export default function App() {
             <span>· PlantVillage Fine-Tuned EfficientNetB0</span>
           </div>
           <div className="text-stone-400 text-[11px]">
-            Explainable AI with Grad-CAM & Faithfulness Region Deletion Verification
+            Visual evidence from a fine-tuned EfficientNetB0 model
           </div>
         </div>
       </footer>

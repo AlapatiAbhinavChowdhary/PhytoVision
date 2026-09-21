@@ -61,7 +61,7 @@ export default function ResultCard({
     : null;
 
   return (
-    <div className="bg-white rounded-3xl border border-stone-200/90 shadow-sm overflow-hidden mb-12 transition-all">
+    <div className="glass-panel glass-enter rounded-3xl overflow-hidden mb-12 transition-all">
       
       {/* 1. Header Banner */}
       <div className="p-6 sm:p-8 border-b border-stone-200/80 bg-gradient-to-r from-stone-50 via-white to-emerald-50/20">
@@ -152,10 +152,10 @@ export default function ResultCard({
         )}
       </div>
 
-      {/* 3. Visual Explanation Section: Side-by-Side Images & Faithfulness */}
+      {/* 3. Visual evidence section */}
       <div className="p-6 sm:p-8 border-b border-stone-200/80">
         
-        {/* Section Title & Faithfulness Trust Indicator */}
+        {/* Section Title & reliability indicator */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
             <div className="flex items-center space-x-2">
@@ -163,15 +163,15 @@ export default function ResultCard({
                 <Eye className="w-4 h-4" />
               </div>
               <h2 className="text-base font-bold text-stone-900">
-                Visual Attention & Explainability (Grad-CAM)
+                Visual Focus
               </h2>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
-              Gradient-weighted Class Activation Mapping computed from EfficientNetB0's last conv layer (<code className="font-mono text-[11px] bg-stone-100 px-1 py-0.5 rounded">top_conv</code>).
+              Highlighted regions show the parts of the leaf that influenced this result.
             </p>
           </div>
 
-          {/* Faithfulness Score Trust Badge with Tooltip */}
+          {/* Evidence score badge with tooltip */}
           {faithfulnessPercent !== null && (
             <div className="relative inline-block">
               <div
@@ -181,10 +181,10 @@ export default function ResultCard({
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <div className="text-left">
                   <div className="text-[10px] uppercase font-semibold tracking-wider text-stone-500">
-                    Faithfulness Metric
+                    Evidence Check
                   </div>
                   <div className="text-xs font-bold text-stone-900 flex items-center space-x-1">
-                    <span>Explanation reliability:</span>
+                    <span>Evidence strength:</span>
                     <span className="text-emerald-700 font-extrabold">{faithfulnessPercent}%</span>
                     <HelpCircle className="w-3 h-3 text-stone-400 ml-0.5" />
                   </div>
@@ -196,13 +196,13 @@ export default function ResultCard({
                 <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 p-4 bg-stone-900 text-stone-100 text-xs rounded-2xl shadow-xl z-30 border border-stone-700 leading-relaxed">
                   <div className="flex items-center space-x-1.5 font-bold text-emerald-400 mb-1.5">
                     <ShieldCheck className="w-4 h-4" />
-                    <span>How Faithfulness is Measured</span>
+                    <span>How the score is measured</span>
                   </div>
                   <p className="text-stone-300">
-                    The model identified the top 30% most activated regions in the Grad-CAM heatmap, masked them out, and re-evaluated the leaf.
+                    The model identified the most active regions, masked them out, and re-evaluated the leaf.
                   </p>
                   <p className="mt-1.5 text-stone-400">
-                    The reliability score (<span className="text-emerald-300 font-semibold">{faithfulnessPercent}%</span>) represents the drop in model confidence when those salient visual regions were removed. Higher scores confirm the model truly relied on this evidence.
+                    The evidence score (<span className="text-emerald-300 font-semibold">{faithfulnessPercent}%</span>) represents the drop in confidence when those visual regions were removed. Higher scores mean the highlighted areas mattered more.
                   </p>
                   <button
                     onClick={() => setShowTooltip(false)}
@@ -236,30 +236,30 @@ export default function ResultCard({
             </p>
           </div>
 
-          {/* Grad-CAM Overlay */}
+          {/* Visual focus overlay */}
           <div className="flex flex-col">
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-emerald-300/80 bg-stone-900 shadow-xs group">
               {explanation?.heatmap_overlay ? (
                 <img
                   src={explanation.heatmap_overlay}
-                  alt="Grad-CAM Heatmap Overlay"
+                  alt="Visual focus overlay"
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-stone-400 p-6 text-center text-xs">
                   <Layers className="w-8 h-8 mb-2 animate-spin text-emerald-500" />
-                  Generating Grad-CAM overlay...
+                  Preparing visual focus overlay...
                 </div>
               )}
               <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-emerald-950/80 text-emerald-300 text-xs font-semibold backdrop-blur-xs border border-emerald-700/50 flex items-center space-x-1.5">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Grad-CAM Activation Map</span>
+                <span>Visual Focus Map</span>
               </div>
             </div>
             
             {/* Required Caption */}
             <p className="text-xs text-emerald-800 bg-emerald-50/70 p-2 rounded-xl mt-2 text-center font-medium border border-emerald-100">
-              💡 Highlighted areas show what the model focused on to make this decision.
+              Highlighted areas show what influenced this decision.
             </p>
           </div>
 

@@ -66,7 +66,7 @@ export const SAMPLE_DATA = [
 
 export default function SampleGallery({ onSelectSample, activeSampleId, isLoading }) {
   return (
-    <div className="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs mb-8">
+    <div className="glass-panel glass-enter rounded-3xl p-5 mb-8">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
@@ -92,7 +92,7 @@ export default function SampleGallery({ onSelectSample, activeSampleId, isLoadin
               className={`group text-left p-2.5 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
                 isSelected
                   ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20 shadow-xs'
-                  : 'border-stone-200 hover:border-emerald-300 hover:bg-stone-50/80 bg-white'
+                  : 'border-white/70 hover:border-emerald-300 hover:bg-white/40 bg-white/25'
               } ${isLoading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               {/* Image preview */}

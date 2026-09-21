@@ -4,9 +4,9 @@ import { Loader2, Sparkles, Brain, CheckCircle2 } from 'lucide-react';
 const STEPS = [
   'Preprocessing leaf foliage and normalizing channels...',
   'Evaluating 38 disease classes with EfficientNetB0...',
-  'Extracting feature gradients from top_conv layer...',
-  'Generating Grad-CAM attention heatmap overlay...',
-  'Masking top-30% salient region to compute explanation faithfulness...'
+  'Comparing visual patterns across the leaf...',
+  'Mapping the regions that influenced the result...',
+  'Checking evidence strength before the result is ready...'
 ];
 
 export default function LoadingState() {
@@ -20,7 +20,7 @@ export default function LoadingState() {
   }, []);
 
   return (
-    <div className="bg-white rounded-2xl p-8 border border-stone-200/80 shadow-xs mb-8">
+    <div className="glass-panel glass-enter rounded-3xl p-8 mb-8">
       <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto py-6">
         
         {/* Animated Icon Ring */}
@@ -34,10 +34,10 @@ export default function LoadingState() {
         </div>
 
         <h3 className="text-lg font-bold text-stone-900 mb-1">
-          Analyzing Plant Health & Explainability
+          Reading Plant Health
         </h3>
         <p className="text-xs text-stone-500 mb-6">
-          Computing neural gradients and visual attention maps in real-time...
+          Comparing visual patterns and preparing your result...
         </p>
 
         {/* Step progress checklist */}

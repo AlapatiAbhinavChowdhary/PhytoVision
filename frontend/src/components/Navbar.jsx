@@ -3,7 +3,7 @@ import { Leaf, ShieldCheck, Activity, Cpu } from 'lucide-react';
 
 export default function Navbar({ isBackendOnline }) {
   return (
-    <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-stone-200/80 shadow-xs">
+    <header className="sticky top-0 z-40 glass-panel border-x-0 border-t-0 rounded-b-3xl">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         
         {/* Brand */}
@@ -14,12 +14,12 @@ export default function Navbar({ isBackendOnline }) {
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-bold text-lg text-stone-900 tracking-tight">PhytoVision</span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
-                XAI
+              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-100/70 text-emerald-800 border border-white/70">
+                LIVE
               </span>
             </div>
             <p className="text-[11px] text-stone-500 -mt-0.5 font-medium hidden sm:block">
-              Explainable Plant Disease Diagnosis
+              Plant health intelligence
             </p>
           </div>
         </div>

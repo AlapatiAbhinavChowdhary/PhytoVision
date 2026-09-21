@@ -56,7 +56,7 @@ export default function ImageUploader({
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-stone-200/80 shadow-xs mb-8">
+    <div className="glass-panel glass-enter rounded-3xl p-6 mb-8">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-bold text-stone-900">Upload Plant Foliage Photo</h2>
@@ -86,7 +86,7 @@ export default function ImageUploader({
           className={`relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
             isDragging
               ? 'border-emerald-500 bg-emerald-50/60 scale-[0.99]'
-              : 'border-stone-300 hover:border-emerald-400 hover:bg-stone-50/60 bg-stone-50/30'
+              : 'border-white/70 hover:border-emerald-400 hover:bg-white/35 bg-white/20'
           }`}
         >
           <input
@@ -151,7 +151,7 @@ export default function ImageUploader({
                 Leaf Image Loaded
               </h4>
               <p className="text-xs text-stone-600 mt-1">
-                Our model will analyze disease symptoms, generate a Grad-CAM visual attention heatmap on the last convolutional layer, and verify explanation faithfulness.
+                Our model will compare disease patterns and show the visual evidence behind its result.
               </p>
             </div>
 
@@ -159,9 +159,9 @@ export default function ImageUploader({
               <button
                 onClick={onSubmit}
                 disabled={isLoading}
-                className="flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold shadow-sm shadow-emerald-600/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="glass-button flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>{isLoading ? 'Analyzing Foliage...' : 'Run Explainable Diagnosis'}</span>
+                <span>{isLoading ? 'Analyzing Foliage...' : 'Run Diagnosis'}</span>
                 {!isLoading && <ArrowRight className="w-4 h-4" />}
               </button>
 
