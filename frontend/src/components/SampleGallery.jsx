@@ -91,8 +91,8 @@ export default function SampleGallery({ onSelectSample, activeSampleId, isLoadin
               disabled={isLoading}
               className={`group text-left p-2.5 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
                 isSelected
-                  ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20 shadow-xs'
-                  : 'border-white/70 hover:border-emerald-300 hover:bg-white/40 bg-white/25'
+                  ? 'border-emerald-600 bg-emerald-50/95 ring-2 ring-emerald-600/20 shadow-xs'
+                  : 'border-white/90 hover:border-emerald-300 hover:bg-white bg-white/90'
               } ${isLoading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               {/* Image preview */}

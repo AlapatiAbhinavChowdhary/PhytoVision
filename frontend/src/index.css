@@ -11,8 +11,8 @@
 :root {
   --ink: #16261f;
   --muted: #60746b;
-  --glass: rgba(247, 252, 249, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.52);
+  --glass: rgba(247, 252, 249, 0.94);
+  --glass-border: rgba(255, 255, 255, 0.9);
 }
 
 body::before,

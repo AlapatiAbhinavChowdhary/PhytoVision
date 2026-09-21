@@ -85,8 +85,8 @@ export default function ImageUploader({
           onClick={() => fileInputRef.current?.click()}
           className={`relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
             isDragging
-              ? 'border-emerald-500 bg-emerald-50/60 scale-[0.99]'
-              : 'border-white/70 hover:border-emerald-400 hover:bg-white/35 bg-white/20'
+              ? 'border-emerald-500 bg-emerald-50/95 scale-[0.99]'
+              : 'border-white/90 hover:border-emerald-400 hover:bg-white bg-white/90'
           }`}
         >
           <input
