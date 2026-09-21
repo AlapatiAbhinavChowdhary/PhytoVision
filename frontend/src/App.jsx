@@ -157,7 +157,7 @@ export default function App() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 pb-16">
         
         {/* Hero Section */}
-        <div className="glass-panel glass-enter text-center max-w-3xl mx-auto mb-8 px-6 py-8 sm:px-12 sm:py-10 rounded-[2rem]">
+        <div className="glass-panel hero-glass glass-enter text-center max-w-3xl mx-auto mb-8 px-6 py-8 sm:px-12 sm:py-10 rounded-[2rem]">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
             <Leaf className="w-3.5 h-3.5" />
             <span>Plant pathology intelligence</span>

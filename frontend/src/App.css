@@ -10,6 +10,11 @@
   box-shadow: 0 26px 68px rgba(25, 59, 45, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
+.hero-glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(242, 252, 246, 0.28));
+  box-shadow: 0 24px 64px rgba(20, 55, 40, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
 .glass-panel .bg-white,
 .glass-panel .bg-stone-50,
 .glass-panel .bg-stone-50\/50,
