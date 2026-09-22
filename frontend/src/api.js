@@ -66,3 +66,21 @@ export async function fetchDiseaseInfo(rawClass) {
 
   return await res.json();
 }
+
+export async function fetchModelMetrics() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/model-metrics`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    console.info('Backend /model-metrics unreachable, falling back to static asset...');
+  }
+
+  // Resilient fallback to static json file served from public/
+  const staticRes = await fetch('/model_metrics.json');
+  if (!staticRes.ok) {
+    throw new Error('Failed to load model metrics.');
+  }
+  return await staticRes.json();
+}

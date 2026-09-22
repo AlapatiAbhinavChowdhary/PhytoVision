@@ -1,9 +1,11 @@
+import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 
 from backend.model_service import model_service
 from backend.constants import DISEASE_INFO, parse_class_name, CLASS_NAMES
@@ -52,13 +54,28 @@ ALLOWED_MIME_TYPES = {
     "application/octet-stream"  # Fallback for some clients
 }
 
+METRICS_PATH = Path(__file__).resolve().parent / "model_metrics.json"
+
 @app.get("/")
 def root():
     return {
         "status": "online",
         "service": "Explainable Plant Disease Classifier API",
-        "endpoints": ["/predict", "/explain", "/disease-info/{class_name}", "/classes"]
+        "endpoints": ["/predict", "/explain", "/disease-info/{class_name}", "/classes", "/model-metrics"]
     }
+
+@app.get("/model-metrics")
+def get_model_metrics():
+    """
+    Returns pre-computed evaluation metrics from the model training pipeline:
+    overall accuracy, per-class precision/recall/F1/support, confusion matrix, and class names.
+    """
+    if not METRICS_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Model evaluation metrics file not found."
+        )
+    return FileResponse(METRICS_PATH, media_type="application/json")
 
 @app.get("/health")
 def health_check():

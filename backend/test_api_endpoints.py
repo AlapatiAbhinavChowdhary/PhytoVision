@@ -45,7 +45,18 @@ def test_api():
     assert r.status_code == 200
     print("Disease Info:", info)
 
-    # 4. Test error handling on bad file
+    # 4. Test GET /model-metrics
+    r = requests.get("http://127.0.0.1:8000/model-metrics")
+    print("GET /model-metrics status:", r.status_code)
+    assert r.status_code == 200
+    metrics = r.json()
+    assert "overall_accuracy" in metrics
+    assert "per_class_metrics" in metrics
+    assert "confusion_matrix" in metrics
+    assert "class_names" in metrics
+    print(f"Loaded metrics for {len(metrics['class_names'])} classes. Overall accuracy: {metrics['overall_accuracy']}")
+
+    # 5. Test error handling on bad file
     bad_file = {"file": ("test.txt", io.BytesIO(b"not an image"), "text/plain")}
     r = requests.post("http://127.0.0.1:8000/predict", files=bad_file)
     print("Bad file status (expected 400):", r.status_code)
