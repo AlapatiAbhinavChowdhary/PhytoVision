@@ -33,6 +33,18 @@ export async function predictImage(file) {
   return await res.json();
 }
 
+export async function fetchModelMetrics() {
+  const res = await fetch(`${API_BASE_URL}/metrics`, {
+    method: 'GET',
+  });
+
+  if (!res.ok) {
+    throw new Error('Model metrics could not be loaded.');
+  }
+
+  return await res.json();
+}
+
 export async function explainImage(file, targetClass = null) {
   const formData = new FormData();
   formData.append('file', file);

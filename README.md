@@ -14,7 +14,8 @@ PhytoVision AI is a full-stack plant pathology application. Upload a leaf image 
       - Compares confidence before and after masking highlighted regions to provide an evidence score.
   - **Pathology Knowledge Base**: Layman explanations, practical recommended actions, and severity ratings for all 38 classes.
   - **Endpoints**:
-    - `POST /predict`: Upload image, get predicted class, host crop, confidence, and top-3 candidates.
+   - `POST /predict`: Upload image, get predicted class, host crop, confidence, model validation metrics, and top-3 candidates.
+   - `GET /metrics`: Returns aggregate weighted accuracy, precision, recall, and F1 score from the final model's validation report.
     - `POST /explain`: Returns Grad-CAM overlay (base64 PNG) and faithfulness reliability score.
     - `GET /disease-info/{class_name}`: Returns pathology details and action steps.
     - `GET /health`: Health status & model warmup check.

@@ -4,9 +4,11 @@ import SampleGallery from './components/SampleGallery';
 import ImageUploader from './components/ImageUploader';
 import LoadingState from './components/LoadingState';
 import ResultCard from './components/ResultCard';
+import ModelMetricsPanel from './components/ModelMetricsPanel';
 import {
   checkBackendHealth,
   predictImage,
+  fetchModelMetrics,
   explainImage,
   fetchDiseaseInfo
 } from './api';
@@ -22,8 +24,14 @@ export default function App() {
   const [error, setError] = useState(null);
 
   const [prediction, setPrediction] = useState(null);
+  const [modelMetrics, setModelMetrics] = useState(null);
   const [explanation, setExplanation] = useState(null);
   const [diseaseInfo, setDiseaseInfo] = useState(null);
+
+  const updateBackendStatus = async () => {
+    const { healthy, modelLoaded } = await checkBackendHealth();
+    setIsBackendOnline(healthy && modelLoaded);
+  };
 
   // Monitor backend health
   useEffect(() => {
@@ -67,6 +75,7 @@ export default function App() {
     setPreviewUrl(null);
     setActiveSampleId(null);
     setPrediction(null);
+    setModelMetrics(null);
     setExplanation(null);
     setDiseaseInfo(null);
     setError(null);
@@ -108,6 +117,14 @@ export default function App() {
       // Step 1: Predict
       const predResult = await predictImage(file);
       setPrediction(predResult);
+
+      // Keep metrics available even when an older backend does not include
+      // them in the prediction response yet.
+      const metricsResult = await fetchModelMetrics().catch((e) => {
+        console.warn('Metrics lookup failed:', e);
+        return predResult.validation_metrics || predResult.model_metrics || null;
+      });
+      setModelMetrics(metricsResult || predResult.validation_metrics || predResult.model_metrics || null);
 
       // Step 2 & 3: Run Grad-CAM Explain and Disease Info concurrently
       const [explainResult, infoResult] = await Promise.all([
@@ -180,7 +197,7 @@ export default function App() {
               </span>
             </div>
             <button
-              onClick={() => checkBackendHealth().then((h) => setIsBackendOnline(h.healthy))}
+              onClick={updateBackendStatus}
               className="px-2.5 py-1 bg-white rounded-lg border border-amber-300 font-medium hover:bg-amber-100 flex items-center space-x-1"
             >
               <RefreshCw className="w-3 h-3" />
@@ -235,6 +252,7 @@ export default function App() {
               diseaseInfo={diseaseInfo}
               originalImageUrl={previewUrl}
             />
+            <ModelMetricsPanel prediction={prediction} metrics={modelMetrics} />
           </div>
         )}
 

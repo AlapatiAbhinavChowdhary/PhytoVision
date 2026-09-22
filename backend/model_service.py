@@ -9,6 +9,7 @@ from tensorflow import keras
 import matplotlib.pyplot as plt
 
 from backend.constants import CLASS_NAMES, parse_class_name, DISEASE_INFO
+from backend.constants import CLASS_NAMES, parse_class_name, DISEASE_INFO, MODEL_METRICS
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,7 @@ class ModelService:
             "raw_class": top_raw_class,
             "confidence": round(top_conf, 4),
             "is_healthy": is_healthy,
+            "validation_metrics": MODEL_METRICS.copy(),
             "top_3_predictions": top_3
         }
 
