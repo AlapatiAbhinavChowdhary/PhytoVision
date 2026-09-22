@@ -1,8 +1,20 @@
-const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').trim();
-const normalizedUrl = rawApiUrl.startsWith('http')
-  ? rawApiUrl
-  : `https://${rawApiUrl}`;
-export const API_BASE_URL = normalizedUrl.replace(/\/+$/, '');
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+function getApiBaseUrl() {
+  if (rawApiUrl) {
+    if (rawApiUrl.startsWith('/') || rawApiUrl.startsWith('http')) {
+      return rawApiUrl.replace(/\/+$/, '');
+    }
+    return `https://${rawApiUrl}`.replace(/\/+$/, '');
+  }
+  // If running in cloud production (e.g. Vercel), route through /api proxy
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api';
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export async function checkBackendHealth() {
   try {
