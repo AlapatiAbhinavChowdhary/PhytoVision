@@ -1,9 +1,8 @@
-const configuredApiUrl = import.meta.env.VITE_API_URL;
-const API_BASE_URL = configuredApiUrl
-  ? configuredApiUrl.startsWith('http')
-    ? configuredApiUrl
-    : `https://${configuredApiUrl}`
-  : 'http://127.0.0.1:8000';
+const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').trim();
+const normalizedUrl = rawApiUrl.startsWith('http')
+  ? rawApiUrl
+  : `https://${rawApiUrl}`;
+export const API_BASE_URL = normalizedUrl.replace(/\/+$/, '');
 
 export async function checkBackendHealth() {
   try {

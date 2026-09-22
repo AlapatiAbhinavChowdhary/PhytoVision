@@ -36,10 +36,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+import re
+
+# Normalize duplicate slashes in incoming request URLs (e.g. //health -> /health)
+@app.middleware("http")
+async def normalize_slashes(request, call_next):
+    raw_path = request.scope.get("path", "")
+    if "//" in raw_path:
+        request.scope["path"] = re.sub(r"/+", "/", raw_path)
+    return await call_next(request)
+
 # CORS middleware for frontend (e.g., Vite on localhost:5173 or other dev ports)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins in development
+    allow_origins=["*"],  # Allows all origins in development and production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,7 +66,7 @@ ALLOWED_MIME_TYPES = {
 
 METRICS_PATH = Path(__file__).resolve().parent / "model_metrics.json"
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {
         "status": "online",
@@ -64,7 +74,7 @@ def root():
         "endpoints": ["/predict", "/explain", "/disease-info/{class_name}", "/classes", "/model-metrics"]
     }
 
-@app.get("/model-metrics")
+@app.api_route("/model-metrics", methods=["GET", "HEAD"])
 def get_model_metrics():
     """
     Returns pre-computed evaluation metrics from the model training pipeline:
@@ -77,7 +87,7 @@ def get_model_metrics():
         )
     return FileResponse(METRICS_PATH, media_type="application/json")
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {
         "status": "healthy" if model_service.is_loaded else "loading",
