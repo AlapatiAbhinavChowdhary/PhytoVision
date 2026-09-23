@@ -185,6 +185,7 @@ export default function App() {
         isBackendOnline={isBackendOnline}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        modelMetrics={modelMetrics}
       />
 
       {/* Main Container */}
@@ -222,7 +223,7 @@ export default function App() {
                 Diagnose Crop Diseases with <span className="text-emerald-700 underline decoration-emerald-300">Visual Evidence</span>
               </h1>
               <p className="text-sm text-stone-600 mt-2.5 leading-relaxed">
-                Upload an affected leaf or pick a test sample below. Our model predicts across 38 crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
+                Upload an affected leaf or pick a test sample below. Our model predicts across {modelMetrics?.class_names?.length || 0} crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
               </p>
 
               {/* Quick Model Performance banner button */}
@@ -231,7 +232,7 @@ export default function App() {
                   onClick={() => setActiveTab('performance')}
                   className="inline-flex items-center space-x-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1 rounded-full border border-emerald-200/80 transition-colors cursor-pointer"
                 >
-                  <span>Explore full 99.12% accuracy evaluation & 38×38 confusion matrix</span>
+                  <span>Explore the validation accuracy evaluation &amp; {modelMetrics?.class_names?.length || 0}×{modelMetrics?.class_names?.length || 0} confusion matrix</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -312,7 +313,7 @@ export default function App() {
             <span>· PlantVillage Fine-Tuned EfficientNetB0</span>
           </div>
           <div className="text-stone-400 text-[11px]">
-            Overall Accuracy 99.12% · 38 Classes · Grad-CAM Visual Attention
+            Overall Accuracy {typeof modelMetrics?.overall_accuracy === 'number' ? `${(modelMetrics.overall_accuracy * 100).toFixed(2)}%` : 'Loading'} · {modelMetrics?.class_names?.length || 0} Classes · Grad-CAM Visual Attention
           </div>
         </div>
       </footer>

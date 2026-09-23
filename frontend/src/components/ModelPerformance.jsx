@@ -55,11 +55,12 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
   }
 
   const {
-    overall_accuracy = 0.9912,
+    overall_accuracy,
     per_class_metrics = {},
     confusion_matrix = [],
     class_names = []
   } = metrics;
+  const class_count = class_names.length;
 
   // Aggregate stats
   const summaryStats = useMemo(() => {
@@ -201,7 +202,7 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
               Model Performance & Evaluation Metrics
             </h1>
             <p className="text-xs sm:text-sm text-stone-500 mt-1 leading-relaxed max-w-2xl">
-              Comprehensive statistical evaluation of the fine-tuned EfficientNetB0 architecture across 38 distinct crop categories and foliar pathologies on 17,572 unseen test samples.
+              Comprehensive statistical evaluation of the fine-tuned EfficientNetB0 architecture across {class_names.length} crop categories and foliar pathologies on {summaryStats.totalSupport.toLocaleString()} unseen test samples.
             </p>
           </div>
 
@@ -241,7 +242,7 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
               {(summaryStats.macroF1 * 100).toFixed(2)}%
             </div>
             <p className="text-[11px] text-stone-500 mt-1">
-              Balanced harmonic mean across all 38 classes
+              Balanced harmonic mean across all {class_count} classes
             </p>
           </div>
 
@@ -267,13 +268,13 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
               {summaryStats.totalSupport.toLocaleString()}
             </div>
             <p className="text-[11px] text-stone-500 mt-1">
-              Annotated images across 38 categories
+              Annotated images across {class_count} categories
             </p>
           </div>
         </div>
       </div>
 
-      {/* 2. Confusion Matrix Heatmap Section (38x38) */}
+      {/* 2. Confusion Matrix Heatmap Section */}
       <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-stone-100 pb-5 mb-6">
           <div>
@@ -282,7 +283,7 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
                 <BarChart3 className="w-4 h-4" />
               </div>
               <h2 className="text-lg font-bold text-stone-900">
-                Confusion Matrix Heatmap (38 × 38)
+                Confusion Matrix Heatmap ({class_count} × {class_count})
               </h2>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
@@ -414,7 +415,7 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
           >
             {/* Top axis label indicator */}
             <div className="flex items-center text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-2 pl-36">
-              <span>Predicted Class (Columns 1 → 38)</span>
+              <span>Predicted Class (Columns 1 → {class_count})</span>
             </div>
 
             {/* Matrix Rows */}
@@ -438,7 +439,7 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
                     <span>{parsedTrue.crop} {parsedTrue.disease}</span>
                   </div>
 
-                  {/* 38 Cells in this row */}
+                  {/* One cell per predicted class */}
                   <div className="flex items-center">
                     {row.map((val, colIdx) => {
                       const predClassName = class_names[colIdx] || `Class ${colIdx + 1}`;
@@ -519,7 +520,7 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
         </div>
 
         <p className="text-[11px] text-stone-400 mt-2 text-center">
-          💡 Click any row name or class cell to highlight its cross-axial predictions across all 38 categories.
+          Click any row name or class cell to highlight its cross-axial predictions across all {class_count} categories.
         </p>
       </div>
 

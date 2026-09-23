@@ -1,7 +1,10 @@
 import React from 'react';
 import { Leaf, Cpu, BarChart3, Stethoscope } from 'lucide-react';
 
-export default function Navbar({ isBackendOnline, activeTab, onSelectTab }) {
+export default function Navbar({ isBackendOnline, activeTab, onSelectTab, modelMetrics }) {
+  const accuracy = modelMetrics?.overall_accuracy;
+  const accuracyLabel = typeof accuracy === 'number' ? `${(accuracy * 100).toFixed(2)}%` : 'Live metrics';
+
   return (
     <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-stone-200/80 shadow-xs">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
@@ -52,7 +55,7 @@ export default function Navbar({ isBackendOnline, activeTab, onSelectTab }) {
             <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
             <span>Model Performance</span>
             <span className="hidden md:inline-block px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200">
-              99.12%
+              {accuracyLabel}
             </span>
           </button>
         </nav>
@@ -64,7 +67,7 @@ export default function Navbar({ isBackendOnline, activeTab, onSelectTab }) {
             <Cpu className="w-3.5 h-3.5 text-stone-500" />
             <span>EfficientNetB0</span>
             <span className="text-stone-300">•</span>
-            <span className="text-emerald-700 font-semibold">99.12% Val Acc</span>
+            <span className="text-emerald-700 font-semibold">{accuracyLabel} Val Acc</span>
           </div>
 
           {/* Backend Status indicator */}
