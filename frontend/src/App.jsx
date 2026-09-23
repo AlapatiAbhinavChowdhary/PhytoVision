@@ -196,7 +196,7 @@ export default function App() {
             <div className="flex items-center space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                Backend server is connecting (target: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">{API_BASE_URL}</code>). Pre-computed metrics remain accessible.
+                Backend server is connecting (target: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">{API_BASE_URL}</code>).
               </span>
             </div>
             <button

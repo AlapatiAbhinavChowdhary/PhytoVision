@@ -79,19 +79,11 @@ export async function fetchDiseaseInfo(rawClass) {
 }
 
 export async function fetchModelMetrics() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/model-metrics`);
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch {
-    console.info('Backend /model-metrics unreachable, falling back to static asset...');
+  const res = await fetch(`${API_BASE_URL}/model-metrics`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Failed to load model metrics.' }));
+    throw new Error(errorData.detail || 'Failed to load model metrics.');
   }
 
-  // Resilient fallback to static json file served from public/
-  const staticRes = await fetch('/model_metrics.json');
-  if (!staticRes.ok) {
-    throw new Error('Failed to load model metrics.');
-  }
-  return await staticRes.json();
+  return await res.json();
 }
