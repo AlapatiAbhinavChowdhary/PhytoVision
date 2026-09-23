@@ -1,9 +1,11 @@
+import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 
 from backend.model_service import model_service
 from backend.constants import DISEASE_INFO, parse_class_name, CLASS_NAMES
@@ -34,10 +36,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+import re
+
+# Normalize duplicate slashes in incoming request URLs (e.g. //health -> /health)
+@app.middleware("http")
+async def normalize_slashes(request, call_next):
+    raw_path = request.scope.get("path", "")
+    if "//" in raw_path:
+        request.scope["path"] = re.sub(r"/+", "/", raw_path)
+    return await call_next(request)
+
 # CORS middleware for frontend (e.g., Vite on localhost:5173 or other dev ports)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins in development
+    allow_origins=["*"],  # Allows all origins in development and production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,15 +64,30 @@ ALLOWED_MIME_TYPES = {
     "application/octet-stream"  # Fallback for some clients
 }
 
-@app.get("/")
+METRICS_PATH = Path(__file__).resolve().parent / "model_metrics.json"
+
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {
         "status": "online",
         "service": "Explainable Plant Disease Classifier API",
-        "endpoints": ["/predict", "/explain", "/disease-info/{class_name}", "/classes"]
+        "endpoints": ["/predict", "/explain", "/disease-info/{class_name}", "/classes", "/model-metrics"]
     }
 
-@app.get("/health")
+@app.api_route("/model-metrics", methods=["GET", "HEAD"])
+def get_model_metrics():
+    """
+    Returns pre-computed evaluation metrics from the model training pipeline:
+    overall accuracy, per-class precision/recall/F1/support, confusion matrix, and class names.
+    """
+    if not METRICS_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Model evaluation metrics file not found."
+        )
+    return FileResponse(METRICS_PATH, media_type="application/json")
+
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {
         "status": "healthy" if model_service.is_loaded else "loading",

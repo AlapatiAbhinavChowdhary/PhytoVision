@@ -1,4 +1,20 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+function getApiBaseUrl() {
+  if (rawApiUrl) {
+    if (rawApiUrl.startsWith('/') || rawApiUrl.startsWith('http')) {
+      return rawApiUrl.replace(/\/+$/, '');
+    }
+    return `https://${rawApiUrl}`.replace(/\/+$/, '');
+  }
+  // If running in cloud production (e.g. Vercel), route through /api proxy
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api';
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export async function checkBackendHealth() {
   try {
@@ -60,4 +76,22 @@ export async function fetchDiseaseInfo(rawClass) {
   }
 
   return await res.json();
+}
+
+export async function fetchModelMetrics() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/model-metrics`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    console.info('Backend /model-metrics unreachable, falling back to static asset...');
+  }
+
+  // Resilient fallback to static json file served from public/
+  const staticRes = await fetch('/model_metrics.json');
+  if (!staticRes.ok) {
+    throw new Error('Failed to load model metrics.');
+  }
+  return await staticRes.json();
 }

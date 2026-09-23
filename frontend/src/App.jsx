@@ -4,16 +4,23 @@ import SampleGallery from './components/SampleGallery';
 import ImageUploader from './components/ImageUploader';
 import LoadingState from './components/LoadingState';
 import ResultCard from './components/ResultCard';
+import ModelPerformance from './components/ModelPerformance';
 import {
   checkBackendHealth,
   predictImage,
   explainImage,
-  fetchDiseaseInfo
+  fetchDiseaseInfo,
+  fetchModelMetrics,
+  API_BASE_URL
 } from './api';
-import { AlertTriangle, RefreshCw, Leaf, HelpCircle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Leaf, ArrowRight } from 'lucide-react';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('diagnosis'); // 'diagnosis' | 'performance'
   const [isBackendOnline, setIsBackendOnline] = useState(false);
+  const [modelMetrics, setModelMetrics] = useState(null);
+  const [selectedClassFocus, setSelectedClassFocus] = useState(null);
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [activeSampleId, setActiveSampleId] = useState(null);
@@ -39,6 +46,23 @@ export default function App() {
     return () => {
       isMounted = false;
       clearInterval(interval);
+    };
+  }, []);
+
+  // Fetch model evaluation metrics on startup (with static fallback)
+  useEffect(() => {
+    let isMounted = true;
+    fetchModelMetrics()
+      .then((data) => {
+        if (isMounted) {
+          setModelMetrics(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load model metrics:', err);
+      });
+    return () => {
+      isMounted = false;
     };
   }, []);
 
@@ -148,40 +172,36 @@ export default function App() {
     runDiagnosis(selectedFile, previewUrl);
   };
 
+  const handleViewPerformanceForClass = (rawClass) => {
+    setSelectedClassFocus(rawClass);
+    setActiveTab('performance');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf8]">
       {/* Top Navigation */}
-      <Navbar isBackendOnline={isBackendOnline} />
+      <Navbar
+        isBackendOnline={isBackendOnline}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+      />
 
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 pb-16">
         
-        {/* Hero Section */}
-        <div className="text-center max-w-2xl mx-auto mb-8">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
-            <Leaf className="w-3.5 h-3.5" />
-            <span>AI Plant Pathology + Explainable AI (XAI)</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-stone-900 tracking-tight leading-tight">
-            Diagnose Crop Diseases with <span className="text-emerald-700 underline decoration-emerald-300">Visual Evidence</span>
-          </h1>
-          <p className="text-sm text-stone-600 mt-2.5 leading-relaxed">
-            Upload an affected leaf or pick a test sample below. Our model predicts across 38 crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
-          </p>
-        </div>
-
         {/* Backend offline warning if server unreachable */}
         {!isBackendOnline && (
           <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
             <div className="flex items-center space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                Backend server is connecting (default: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">http://127.0.0.1:8000</code>). Ensure Uvicorn is running.
+                Backend server is connecting (target: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">{API_BASE_URL}</code>). Pre-computed metrics remain accessible.
               </span>
             </div>
             <button
               onClick={() => checkBackendHealth().then((h) => setIsBackendOnline(h.healthy))}
-              className="px-2.5 py-1 bg-white rounded-lg border border-amber-300 font-medium hover:bg-amber-100 flex items-center space-x-1"
+              className="px-2.5 py-1 bg-white rounded-lg border border-amber-300 font-medium hover:bg-amber-100 flex items-center space-x-1 cursor-pointer"
             >
               <RefreshCw className="w-3 h-3" />
               <span>Retry</span>
@@ -189,53 +209,94 @@ export default function App() {
           </div>
         )}
 
-        {/* 1. Quick Sample Gallery */}
-        <SampleGallery
-          onSelectSample={handleSelectSample}
-          activeSampleId={activeSampleId}
-          isLoading={isLoading}
-        />
+        {/* Tab 1: Leaf Diagnosis */}
+        {activeTab === 'diagnosis' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Hero Section */}
+            <div className="text-center max-w-2xl mx-auto mb-4">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
+                <Leaf className="w-3.5 h-3.5" />
+                <span>AI Plant Pathology + Explainable AI (XAI)</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-stone-900 tracking-tight leading-tight">
+                Diagnose Crop Diseases with <span className="text-emerald-700 underline decoration-emerald-300">Visual Evidence</span>
+              </h1>
+              <p className="text-sm text-stone-600 mt-2.5 leading-relaxed">
+                Upload an affected leaf or pick a test sample below. Our model predicts across 38 crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
+              </p>
 
-        {/* 2. Image Upload Box */}
-        <ImageUploader
-          selectedFile={selectedFile}
-          previewUrl={previewUrl}
-          onFileSelect={handleFileSelect}
-          onClear={handleClear}
-          onSubmit={handleSubmit}
-          isLoading={isLoading}
-        />
-
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 mb-8 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start space-x-3">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <strong className="block font-bold text-sm mb-0.5">Diagnostic Error</strong>
-              <span>{error}</span>
+              {/* Quick Model Performance banner button */}
+              <div className="mt-3">
+                <button
+                  onClick={() => setActiveTab('performance')}
+                  className="inline-flex items-center space-x-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1 rounded-full border border-emerald-200/80 transition-colors cursor-pointer"
+                >
+                  <span>Explore full 99.12% accuracy evaluation & 38×38 confusion matrix</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-rose-600 hover:text-rose-800 font-bold px-2 py-1"
-            >
-              Dismiss
-            </button>
+
+            {/* 1. Quick Sample Gallery */}
+            <SampleGallery
+              onSelectSample={handleSelectSample}
+              activeSampleId={activeSampleId}
+              isLoading={isLoading}
+            />
+
+            {/* 2. Image Upload Box */}
+            <ImageUploader
+              selectedFile={selectedFile}
+              previewUrl={previewUrl}
+              onFileSelect={handleFileSelect}
+              onClear={handleClear}
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+            />
+
+            {/* Error Display */}
+            {error && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <strong className="block font-bold text-sm mb-0.5">Diagnostic Error</strong>
+                  <span>{error}</span>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* 3. Loading Skeleton */}
+            {isLoading && <LoadingState />}
+
+            {/* 4. Diagnostic & Explanation Results */}
+            {prediction && !isLoading && (
+              <div id="results-section">
+                <ResultCard
+                  prediction={prediction}
+                  explanation={explanation}
+                  diseaseInfo={diseaseInfo}
+                  originalImageUrl={previewUrl}
+                  modelMetrics={modelMetrics}
+                  onViewPerformanceTab={handleViewPerformanceForClass}
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {/* 3. Loading Skeleton */}
-        {isLoading && <LoadingState />}
-
-        {/* 4. Diagnostic & Explanation Results */}
-        {prediction && !isLoading && (
-          <div id="results-section">
-            <ResultCard
-              prediction={prediction}
-              explanation={explanation}
-              diseaseInfo={diseaseInfo}
-              originalImageUrl={previewUrl}
-            />
-          </div>
+        {/* Tab 2: Model Performance */}
+        {activeTab === 'performance' && (
+          <ModelPerformance
+            metrics={modelMetrics}
+            selectedClassFocus={selectedClassFocus}
+            onSelectClassFocus={setSelectedClassFocus}
+          />
         )}
 
       </main>
@@ -251,7 +312,7 @@ export default function App() {
             <span>· PlantVillage Fine-Tuned EfficientNetB0</span>
           </div>
           <div className="text-stone-400 text-[11px]">
-            Explainable AI with Grad-CAM & Faithfulness Region Deletion Verification
+            Overall Accuracy 99.12% · 38 Classes · Grad-CAM Visual Attention
           </div>
         </div>
       </footer>
