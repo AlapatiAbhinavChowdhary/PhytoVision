@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 
 from backend.model_service import model_service
-from backend.constants import DISEASE_INFO, parse_class_name, CLASS_NAMES
+from backend.constants import DISEASE_INFO, parse_class_name, CLASS_NAMES, MODEL_METRICS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,8 +71,7 @@ def root():
     return {
         "status": "online",
         "service": "Explainable Plant Disease Classifier API",
-        "endpoints": ["/predict", "/explain", "/disease-info/{class_name}", "/classes", "/model-metrics"]
-    }
+
 
 @app.api_route("/model-metrics", methods=["GET", "HEAD"])
 def get_model_metrics():
@@ -108,6 +107,11 @@ def list_classes():
             for c in CLASS_NAMES
         ]
     }
+
+@app.get("/metrics")
+def model_metrics():
+    """Returns aggregate validation metrics for the deployed model."""
+    return MODEL_METRICS
 
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...)):

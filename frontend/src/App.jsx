@@ -4,10 +4,11 @@ import SampleGallery from './components/SampleGallery';
 import ImageUploader from './components/ImageUploader';
 import LoadingState from './components/LoadingState';
 import ResultCard from './components/ResultCard';
-import ModelPerformance from './components/ModelPerformance';
+
 import {
   checkBackendHealth,
   predictImage,
+  fetchModelMetrics,
   explainImage,
   fetchDiseaseInfo,
   fetchModelMetrics,
@@ -29,8 +30,14 @@ export default function App() {
   const [error, setError] = useState(null);
 
   const [prediction, setPrediction] = useState(null);
+  const [modelMetrics, setModelMetrics] = useState(null);
   const [explanation, setExplanation] = useState(null);
   const [diseaseInfo, setDiseaseInfo] = useState(null);
+
+  const updateBackendStatus = async () => {
+    const { healthy, modelLoaded } = await checkBackendHealth();
+    setIsBackendOnline(healthy && modelLoaded);
+  };
 
   // Monitor backend health
   useEffect(() => {
@@ -91,6 +98,7 @@ export default function App() {
     setPreviewUrl(null);
     setActiveSampleId(null);
     setPrediction(null);
+    setModelMetrics(null);
     setExplanation(null);
     setDiseaseInfo(null);
     setError(null);
@@ -132,6 +140,14 @@ export default function App() {
       // Step 1: Predict
       const predResult = await predictImage(file);
       setPrediction(predResult);
+
+      // Keep metrics available even when an older backend does not include
+      // them in the prediction response yet.
+      const metricsResult = await fetchModelMetrics().catch((e) => {
+        console.warn('Metrics lookup failed:', e);
+        return predResult.validation_metrics || predResult.model_metrics || null;
+      });
+      setModelMetrics(metricsResult || predResult.validation_metrics || predResult.model_metrics || null);
 
       // Step 2 & 3: Run Grad-CAM Explain and Disease Info concurrently
       const [explainResult, infoResult] = await Promise.all([
@@ -179,7 +195,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8faf8]">
+    <div className="min-h-screen flex flex-col glass-shell">
       {/* Top Navigation */}
       <Navbar
         isBackendOnline={isBackendOnline}
@@ -191,9 +207,10 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 pb-16">
         
+
         {/* Backend offline warning if server unreachable */}
         {!isBackendOnline && (
-          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+          <div className="glass-panel mb-6 p-4 rounded-2xl bg-amber-50/45 border-amber-200/70 text-amber-900 text-xs flex items-center justify-between">
             <div className="flex items-center space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
@@ -201,8 +218,7 @@ export default function App() {
               </span>
             </div>
             <button
-              onClick={() => checkBackendHealth().then((h) => setIsBackendOnline(h.healthy))}
-              className="px-2.5 py-1 bg-white rounded-lg border border-amber-300 font-medium hover:bg-amber-100 flex items-center space-x-1 cursor-pointer"
+
             >
               <RefreshCw className="w-3 h-3" />
               <span>Retry</span>
@@ -238,56 +254,19 @@ export default function App() {
               </div>
             </div>
 
-            {/* 1. Quick Sample Gallery */}
-            <SampleGallery
-              onSelectSample={handleSelectSample}
-              activeSampleId={activeSampleId}
-              isLoading={isLoading}
+        {/* 3. Loading Skeleton */}
+        {isLoading && <LoadingState />}
+
+        {/* 4. Diagnostic Results */}
+        {prediction && !isLoading && (
+          <div id="results-section">
+            <ResultCard
+              prediction={prediction}
+              explanation={explanation}
+              diseaseInfo={diseaseInfo}
+              originalImageUrl={previewUrl}
             />
-
-            {/* 2. Image Upload Box */}
-            <ImageUploader
-              selectedFile={selectedFile}
-              previewUrl={previewUrl}
-              onFileSelect={handleFileSelect}
-              onClear={handleClear}
-              onSubmit={handleSubmit}
-              isLoading={isLoading}
-            />
-
-            {/* Error Display */}
-            {error && (
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start space-x-3">
-                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <strong className="block font-bold text-sm mb-0.5">Diagnostic Error</strong>
-                  <span>{error}</span>
-                </div>
-                <button
-                  onClick={() => setError(null)}
-                  className="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 cursor-pointer"
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-
-            {/* 3. Loading Skeleton */}
-            {isLoading && <LoadingState />}
-
-            {/* 4. Diagnostic & Explanation Results */}
-            {prediction && !isLoading && (
-              <div id="results-section">
-                <ResultCard
-                  prediction={prediction}
-                  explanation={explanation}
-                  diseaseInfo={diseaseInfo}
-                  originalImageUrl={previewUrl}
-                  modelMetrics={modelMetrics}
-                  onViewPerformanceTab={handleViewPerformanceForClass}
-                />
-              </div>
-            )}
+            <ModelMetricsPanel prediction={prediction} metrics={modelMetrics} />
           </div>
         )}
 
@@ -303,7 +282,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-stone-200 bg-white py-6 text-center text-xs text-stone-500">
+      <footer className="glass-panel border-x-0 border-b-0 rounded-t-3xl py-6 text-center text-xs text-stone-500">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
@@ -313,7 +292,7 @@ export default function App() {
             <span>· PlantVillage Fine-Tuned EfficientNetB0</span>
           </div>
           <div className="text-stone-400 text-[11px]">
-            Overall Accuracy {typeof modelMetrics?.overall_accuracy === 'number' ? `${(modelMetrics.overall_accuracy * 100).toFixed(2)}%` : 'Loading'} · {modelMetrics?.class_names?.length || 0} Classes · Grad-CAM Visual Attention
+            Visual evidence from a fine-tuned EfficientNetB0 model
           </div>
         </div>
       </footer>
