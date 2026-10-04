@@ -53,6 +53,9 @@ def test_api():
     assert r.status_code == 200
     print("Disease Info:", info)
 
+
+
+>>>>>>> main
     # 5. Test error handling on bad file
     bad_file = {"file": ("test.txt", io.BytesIO(b"not an image"), "text/plain")}
     r = requests.post("http://127.0.0.1:8000/predict", files=bad_file)

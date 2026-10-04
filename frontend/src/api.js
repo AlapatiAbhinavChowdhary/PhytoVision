@@ -1,9 +1,20 @@
-const configuredApiUrl = import.meta.env.VITE_API_URL;
-const API_BASE_URL = configuredApiUrl
-  ? configuredApiUrl.startsWith('http')
-    ? configuredApiUrl
-    : `https://${configuredApiUrl}`
-  : 'http://127.0.0.1:8000';
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+function getApiBaseUrl() {
+  if (rawApiUrl) {
+    if (rawApiUrl.startsWith('/') || rawApiUrl.startsWith('http')) {
+      return rawApiUrl.replace(/\/+$/, '');
+    }
+    return `https://${rawApiUrl}`.replace(/\/+$/, '');
+  }
+  // If running in cloud production (e.g. Vercel), route through /api proxy
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api';
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const VALIDATION_METRICS_FALLBACK = {
   accuracy: 0.991,
@@ -88,6 +99,16 @@ export async function fetchDiseaseInfo(rawClass) {
 
   if (!res.ok) {
     return null;
+  }
+
+  return await res.json();
+}
+
+export async function fetchModelMetrics() {
+  const res = await fetch(`${API_BASE_URL}/model-metrics`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Failed to load model metrics.' }));
+    throw new Error(errorData.detail || 'Failed to load model metrics.');
   }
 
   return await res.json();

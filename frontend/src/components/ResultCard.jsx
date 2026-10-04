@@ -11,14 +11,17 @@ import {
   TrendingDown,
   ArrowUpRight,
   ShieldAlert,
-  Sliders
+  Sliders,
+  Target
 } from 'lucide-react';
 
 export default function ResultCard({
   prediction,
   explanation,
   diseaseInfo,
-  originalImageUrl
+  originalImageUrl,
+  modelMetrics,
+  onViewPerformanceTab
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [activeTab, setActiveTab] = useState('side-by-side'); // 'side-by-side' | 'original' | 'heatmap'
@@ -58,6 +61,11 @@ export default function ResultCard({
   // Faithfulness score
   const faithfulnessPercent = explanation?.faithfulness_score != null
     ? Math.round(explanation.faithfulness_score * 100)
+    : null;
+
+  // Class reliability metrics from pre-computed model_metrics.json
+  const classMetrics = prediction?.raw_class && modelMetrics?.per_class_metrics
+    ? modelMetrics.per_class_metrics[prediction.raw_class]
     : null;
 
   return (
@@ -215,6 +223,65 @@ export default function ResultCard({
             </div>
           )}
         </div>
+
+        {/* Model reliability for this class (pulled from per_class_metrics in model_metrics.json) */}
+        {classMetrics && (
+          <div className="mb-6 p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start space-x-2.5">
+                <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 mt-0.5 shrink-0">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                      Model reliability for this class
+                    </span>
+                    <span className="text-[10px] px-2 py-0.2 rounded-full font-semibold bg-emerald-200/70 text-emerald-900 border border-emerald-300">
+                      {classMetrics.support} validation samples
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-900 mt-1 font-medium">
+                    This model correctly identifies <strong>{predicted_class || crop_name}</strong> {Math.round(classMetrics.f1_score * 100)}% of the time (F1: {classMetrics.f1_score}).
+                  </p>
+                </div>
+              </div>
+
+              {/* Metric Breakdown Badges */}
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                <div className="px-2.5 py-1.5 rounded-xl bg-white border border-emerald-200 text-center shadow-2xs min-w-[70px]">
+                  <div className="text-[10px] font-semibold text-stone-400 uppercase">Precision</div>
+                  <div className="text-xs font-bold text-stone-800 font-mono">
+                    {(classMetrics.precision * 100).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="px-2.5 py-1.5 rounded-xl bg-white border border-emerald-200 text-center shadow-2xs min-w-[70px]">
+                  <div className="text-[10px] font-semibold text-stone-400 uppercase">Recall</div>
+                  <div className="text-xs font-bold text-stone-800 font-mono">
+                    {(classMetrics.recall * 100).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="px-2.5 py-1.5 rounded-xl bg-emerald-700 text-white text-center shadow-2xs min-w-[70px]">
+                  <div className="text-[10px] font-semibold text-emerald-200 uppercase">F1-Score</div>
+                  <div className="text-xs font-bold font-mono">
+                    {classMetrics.f1_score}
+                  </div>
+                </div>
+
+                {onViewPerformanceTab && (
+                  <button
+                    onClick={() => onViewPerformanceTab(prediction.raw_class)}
+                    title="Inspect in 38x38 confusion matrix"
+                    className="px-2.5 py-2 rounded-xl bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors shadow-2xs cursor-pointer flex items-center gap-1 text-[11px] font-semibold"
+                  >
+                    <span>Matrix</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Image Display Grid (Side-by-Side) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
