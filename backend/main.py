@@ -71,6 +71,7 @@ def root():
     return {
         "status": "online",
         "service": "Explainable Plant Disease Classifier API",
+    }
 
 
 @app.api_route("/model-metrics", methods=["GET", "HEAD"])
