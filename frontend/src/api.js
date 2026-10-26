@@ -103,13 +103,3 @@ export async function fetchDiseaseInfo(rawClass) {
 
   return await res.json();
 }
-
-export async function fetchModelMetrics() {
-  const res = await fetch(`${API_BASE_URL}/model-metrics`);
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ detail: 'Failed to load model metrics.' }));
-    throw new Error(errorData.detail || 'Failed to load model metrics.');
-  }
-
-  return await res.json();
-}

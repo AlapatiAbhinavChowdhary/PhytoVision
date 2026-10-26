@@ -4,6 +4,8 @@ import SampleGallery from './components/SampleGallery';
 import ImageUploader from './components/ImageUploader';
 import LoadingState from './components/LoadingState';
 import ResultCard from './components/ResultCard';
+import ModelMetricsPanel from './components/ModelMetricsPanel';
+import ModelPerformance from './components/ModelPerformance';
 
 import {
   checkBackendHealth,
@@ -11,13 +13,12 @@ import {
   fetchModelMetrics,
   explainImage,
   fetchDiseaseInfo,
-  fetchModelMetrics,
-  API_BASE_URL
+  API_BASE_URL,
 } from './api';
 import { AlertTriangle, RefreshCw, Leaf, ArrowRight } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('diagnosis'); // 'diagnosis' | 'performance'
+  const [activeTab, setActiveTab] = useState('diagnosis');
   const [isBackendOnline, setIsBackendOnline] = useState(false);
   const [modelMetrics, setModelMetrics] = useState(null);
   const [selectedClassFocus, setSelectedClassFocus] = useState(null);
@@ -30,7 +31,6 @@ export default function App() {
   const [error, setError] = useState(null);
 
   const [prediction, setPrediction] = useState(null);
-  const [modelMetrics, setModelMetrics] = useState(null);
   const [explanation, setExplanation] = useState(null);
   const [diseaseInfo, setDiseaseInfo] = useState(null);
 
@@ -39,7 +39,6 @@ export default function App() {
     setIsBackendOnline(healthy && modelLoaded);
   };
 
-  // Monitor backend health
   useEffect(() => {
     let isMounted = true;
     const check = async () => {
@@ -48,6 +47,7 @@ export default function App() {
         setIsBackendOnline(healthy && modelLoaded);
       }
     };
+
     check();
     const interval = setInterval(check, 8000);
     return () => {
@@ -56,7 +56,6 @@ export default function App() {
     };
   }, []);
 
-  // Fetch model evaluation metrics on startup (with static fallback)
   useEffect(() => {
     let isMounted = true;
     fetchModelMetrics()
@@ -68,12 +67,12 @@ export default function App() {
       .catch((err) => {
         console.warn('Could not load model metrics:', err);
       });
+
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Cleanup object URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -86,6 +85,11 @@ export default function App() {
     setError(null);
     setSelectedFile(file);
     setActiveSampleId(null);
+
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
   };
@@ -98,10 +102,60 @@ export default function App() {
     setPreviewUrl(null);
     setActiveSampleId(null);
     setPrediction(null);
-    setModelMetrics(null);
     setExplanation(null);
     setDiseaseInfo(null);
     setError(null);
+  };
+
+  const runDiagnosis = async (file) => {
+    setIsLoading(true);
+    setError(null);
+    setPrediction(null);
+    setExplanation(null);
+    setDiseaseInfo(null);
+
+    try {
+      const predResult = await predictImage(file);
+      setPrediction(predResult);
+
+      const metricsResult = await fetchModelMetrics().catch((e) => {
+        console.warn('Metrics lookup failed:', e);
+        return predResult.validation_metrics || predResult.model_metrics || null;
+      });
+
+      setModelMetrics(metricsResult || predResult.validation_metrics || predResult.model_metrics || null);
+
+      const [explainResult, infoResult] = await Promise.all([
+        explainImage(file, predResult.raw_class).catch((e) => {
+          console.warn('Explain failed:', e);
+          return null;
+        }),
+        fetchDiseaseInfo(predResult.raw_class).catch((e) => {
+          console.warn('Info lookup failed:', e);
+          return null;
+        }),
+      ]);
+
+      setExplanation(explainResult);
+      setDiseaseInfo(infoResult);
+
+      setTimeout(() => {
+        const resultsElement = document.getElementById('results-section');
+        if (resultsElement) {
+          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Diagnosis error:', err);
+      setError(err.message || 'Unable to complete diagnosis. Please ensure the backend server is running.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!selectedFile) return;
+    runDiagnosis(selectedFile);
   };
 
   const handleSelectSample = async (sample) => {
@@ -113,79 +167,18 @@ export default function App() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch the sample image asset and convert to a File object
       const res = await fetch(sample.url);
       if (!res.ok) throw new Error('Could not load sample image file.');
       const blob = await res.blob();
       const file = new File([blob], `${sample.id}.jpg`, { type: 'image/jpeg' });
       setSelectedFile(file);
 
-      // Trigger full diagnostic pipeline
-      await runDiagnosis(file, sample.url);
+      await runDiagnosis(file);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to process sample image.');
       setIsLoading(false);
     }
-  };
-
-  const runDiagnosis = async (file, displayUrl) => {
-    setIsLoading(true);
-    setError(null);
-    setPrediction(null);
-    setExplanation(null);
-    setDiseaseInfo(null);
-
-    try {
-      // Step 1: Predict
-      const predResult = await predictImage(file);
-      setPrediction(predResult);
-
-      // Keep metrics available even when an older backend does not include
-      // them in the prediction response yet.
-      const metricsResult = await fetchModelMetrics().catch((e) => {
-        console.warn('Metrics lookup failed:', e);
-        return predResult.validation_metrics || predResult.model_metrics || null;
-      });
-      setModelMetrics(metricsResult || predResult.validation_metrics || predResult.model_metrics || null);
-
-      // Step 2 & 3: Run Grad-CAM Explain and Disease Info concurrently
-      const [explainResult, infoResult] = await Promise.all([
-        explainImage(file, predResult.raw_class).catch((e) => {
-          console.warn('Explain failed:', e);
-          return null;
-        }),
-        fetchDiseaseInfo(predResult.raw_class).catch((e) => {
-          console.warn('Info lookup failed:', e);
-          return null;
-        })
-      ]);
-
-      setExplanation(explainResult);
-      setDiseaseInfo(infoResult);
-
-      // Scroll smoothly to results
-      setTimeout(() => {
-        const resultsElement = document.getElementById('results-section');
-        if (resultsElement) {
-          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-
-    } catch (err) {
-      console.error('Diagnosis error:', err);
-      setError(
-        err.message ||
-        'Unable to complete diagnosis. Please ensure the backend server is running.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!selectedFile) return;
-    runDiagnosis(selectedFile, previewUrl);
   };
 
   const handleViewPerformanceForClass = (rawClass) => {
@@ -196,7 +189,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col glass-shell">
-      {/* Top Navigation */}
       <Navbar
         isBackendOnline={isBackendOnline}
         activeTab={activeTab}
@@ -204,13 +196,9 @@ export default function App() {
         modelMetrics={modelMetrics}
       />
 
-      {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 pb-16">
-        
-
-        {/* Backend offline warning if server unreachable */}
         {!isBackendOnline && (
-          <div className="glass-panel mb-6 p-4 rounded-2xl bg-amber-50/45 border-amber-200/70 text-amber-900 text-xs flex items-center justify-between">
+          <div className="glass-panel mb-6 p-4 rounded-2xl bg-amber-50/45 border-amber-200/70 text-amber-900 text-xs flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
@@ -218,7 +206,8 @@ export default function App() {
               </span>
             </div>
             <button
-
+              onClick={updateBackendStatus}
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-2 py-1 text-[11px] font-semibold hover:bg-amber-100"
             >
               <RefreshCw className="w-3 h-3" />
               <span>Retry</span>
@@ -226,10 +215,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 1: Leaf Diagnosis */}
         {activeTab === 'diagnosis' && (
           <div className="space-y-8 animate-fadeIn">
-            {/* Hero Section */}
             <div className="text-center max-w-2xl mx-auto mb-4">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
                 <Leaf className="w-3.5 h-3.5" />
@@ -242,7 +229,6 @@ export default function App() {
                 Upload an affected leaf or pick a test sample below. Our model predicts across {modelMetrics?.class_names?.length || 0} crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
               </p>
 
-              {/* Quick Model Performance banner button */}
               <div className="mt-3">
                 <button
                   onClick={() => setActiveTab('performance')}
@@ -254,23 +240,45 @@ export default function App() {
               </div>
             </div>
 
-        {/* 3. Loading Skeleton */}
-        {isLoading && <LoadingState />}
-
-        {/* 4. Diagnostic Results */}
-        {prediction && !isLoading && (
-          <div id="results-section">
-            <ResultCard
-              prediction={prediction}
-              explanation={explanation}
-              diseaseInfo={diseaseInfo}
-              originalImageUrl={previewUrl}
+            <SampleGallery
+              onSelectSample={handleSelectSample}
+              activeSampleId={activeSampleId}
+              isLoading={isLoading}
             />
-            <ModelMetricsPanel prediction={prediction} metrics={modelMetrics} />
+
+            <ImageUploader
+              selectedFile={selectedFile}
+              previewUrl={previewUrl}
+              onFileSelect={handleFileSelect}
+              onClear={handleClear}
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+            />
+
+            {isLoading && <LoadingState />}
+
+            {error && (
+              <div className="glass-panel p-4 rounded-2xl border border-rose-300 bg-rose-50 text-rose-900 text-sm">
+                {error}
+              </div>
+            )}
+
+            {prediction && !isLoading && (
+              <div id="results-section">
+                <ResultCard
+                  prediction={prediction}
+                  explanation={explanation}
+                  diseaseInfo={diseaseInfo}
+                  originalImageUrl={previewUrl}
+                  modelMetrics={modelMetrics}
+                  onViewPerformanceTab={handleViewPerformanceForClass}
+                />
+                <ModelMetricsPanel prediction={prediction} metrics={modelMetrics} />
+              </div>
+            )}
           </div>
         )}
 
-        {/* Tab 2: Model Performance */}
         {activeTab === 'performance' && (
           <ModelPerformance
             metrics={modelMetrics}
@@ -278,10 +286,8 @@ export default function App() {
             onSelectClassFocus={setSelectedClassFocus}
           />
         )}
-
       </main>
 
-      {/* Footer */}
       <footer className="glass-panel border-x-0 border-b-0 rounded-t-3xl py-6 text-center text-xs text-stone-500">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2">

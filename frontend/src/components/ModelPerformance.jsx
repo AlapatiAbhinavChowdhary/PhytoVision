@@ -41,25 +41,13 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
   const [matrixFilterMode, setMatrixFilterMode] = useState('all'); // 'all' | 'errors_only'
   const [highlightedClassIdx, setHighlightedClassIdx] = useState(null);
   const [cellSize, setCellSize] = useState('standard'); // 'compact' | 'standard' | 'large'
-
-  if (!metrics) {
-    return (
-      <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center shadow-xs">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <Layers className="w-6 h-6" />
-        </div>
-        <h3 className="text-lg font-bold text-stone-900">Loading Model Performance Data...</h3>
-        <p className="text-stone-500 text-xs mt-1">Retrieving validation benchmark metrics and confusion matrix.</p>
-      </div>
-    );
-  }
-
+  const safeMetrics = metrics || {};
   const {
     overall_accuracy,
     per_class_metrics = {},
     confusion_matrix = [],
     class_names = []
-  } = metrics;
+  } = safeMetrics;
   const class_count = class_names.length;
 
   // Aggregate stats
@@ -187,6 +175,18 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
 
   // Cell dimensions based on toggle
   const cellPixelSize = cellSize === 'compact' ? 14 : cellSize === 'large' ? 26 : 20;
+
+  if (!metrics) {
+    return (
+      <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <Layers className="w-6 h-6" />
+        </div>
+        <h3 className="text-lg font-bold text-stone-900">Loading Model Performance Data...</h3>
+        <p className="text-stone-500 text-xs mt-1">Retrieving validation benchmark metrics and confusion matrix.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fadeIn">
