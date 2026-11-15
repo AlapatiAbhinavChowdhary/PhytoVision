@@ -1,5 +1,5 @@
 import React from 'react';
-import { Leaf, Cpu, BarChart3, Stethoscope } from 'lucide-react';
+import { Leaf, Cpu, BarChart3, Stethoscope, Scale } from 'lucide-react';
 
 export default function Navbar({ isBackendOnline, activeTab, onSelectTab }) {
   return (
@@ -52,19 +52,19 @@ export default function Navbar({ isBackendOnline, activeTab, onSelectTab }) {
             <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
             <span>Model Performance</span>
             <span className="hidden md:inline-block px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200">
-              99.12%
+              Ensemble 99.02% Test
             </span>
           </button>
         </nav>
 
         {/* Badges / Status */}
         <div className="flex items-center space-x-3 shrink-0">
-          {/* Model info badge */}
+          {/* Multi-model info badge */}
           <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-stone-100/90 text-stone-600 text-xs font-medium border border-stone-200">
             <Cpu className="w-3.5 h-3.5 text-stone-500" />
-            <span>EfficientNetB0</span>
+            <span>4 Models</span>
             <span className="text-stone-300">•</span>
-            <span className="text-emerald-700 font-semibold">99.12% Val Acc</span>
+            <span className="text-emerald-700 font-semibold">99.02% Ensemble Test Acc</span>
           </div>
 
           {/* Backend Status indicator */}
@@ -75,7 +75,7 @@ export default function Navbar({ isBackendOnline, activeTab, onSelectTab }) {
               }`}
             />
             <span className={isBackendOnline ? 'text-emerald-800' : 'text-amber-800'}>
-              {isBackendOnline ? 'Model Online' : 'Connecting API...'}
+              {isBackendOnline ? 'Models Online' : 'Connecting API...'}
             </span>
           </div>
         </div>

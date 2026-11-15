@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   CheckCircle,
   AlertTriangle,
   Info,
-  HelpCircle,
   Sparkles,
   Layers,
   Eye,
-  ShieldCheck,
-  TrendingDown,
   ArrowUpRight,
-  ShieldAlert,
-  Sliders,
-  Target
+  Target,
+  FlaskConical
 } from 'lucide-react';
+import GeminiDiseaseInsights from './GeminiDiseaseInsights';
+
+const GRADCAM_MODELS = ['ConvNeXtTiny', 'EfficientNetB0', 'MobileNetV3Large', 'DenseNet121'];
 
 export default function ResultCard({
   prediction,
@@ -21,11 +20,11 @@ export default function ResultCard({
   diseaseInfo,
   originalImageUrl,
   modelMetrics,
-  onViewPerformanceTab
+  onViewPerformanceTab,
+  gradCamModel = 'ConvNeXtTiny',
+  onChangeGradCamModel,
+  isExplainLoading = false
 }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [activeTab, setActiveTab] = useState('side-by-side'); // 'side-by-side' | 'original' | 'heatmap'
-
   if (!prediction) return null;
 
   const {
@@ -39,7 +38,6 @@ export default function ResultCard({
   const confPercent = Math.round(confidence * 100);
 
   // Color-coded confidence
-  // green >85%, yellow 60-85%, red <60%
   let confColorClass = 'text-emerald-700 bg-emerald-50 border-emerald-200';
   let confBarColor = 'bg-emerald-500';
   let confBadgeText = 'High Confidence';
@@ -58,23 +56,19 @@ export default function ResultCard({
   const showLowConfWarning = confPercent < 65 && top_3_predictions.length > 1;
   const secondPrediction = top_3_predictions[1]?.class_name || 'an alternate condition';
 
-  // Faithfulness score
-  const faithfulnessPercent = explanation?.faithfulness_score != null
-    ? Math.round(explanation.faithfulness_score * 100)
-    : null;
-
-  // Class reliability metrics from pre-computed model_metrics.json
   const classMetrics = prediction?.raw_class && modelMetrics?.per_class_metrics
     ? modelMetrics.per_class_metrics[prediction.raw_class]
     : null;
 
+  const activeGradCamModel = explanation?.model_name || gradCamModel;
+
   return (
     <div className="bg-white rounded-3xl border border-stone-200/90 shadow-sm overflow-hidden mb-12 transition-all">
-      
+
       {/* 1. Header Banner */}
       <div className="p-6 sm:p-8 border-b border-stone-200/80 bg-gradient-to-r from-stone-50 via-white to-emerald-50/20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          
+
           <div>
             <div className="flex items-center space-x-2.5 mb-2">
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider bg-stone-100 text-stone-700 border border-stone-200">
@@ -93,11 +87,27 @@ export default function ResultCard({
               </span>
             </div>
 
-            {/* Plain language Header: e.g. "🌿 Late Blight — Tomato" */}
+            {/* Plain language Header */}
             <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight flex items-center gap-2">
               <span>{is_healthy ? '🌱' : '🌿'}</span>
               <span>{predicted_class} — {crop_name}</span>
             </h1>
+
+            {/* Ensemble & jump-to-bottom pill */}
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200">
+                4-Model Ensemble (99.02% Test Acc · mean of 3 seeds)
+              </span>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('all-models-results');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-200 transition-colors flex items-center space-x-1 cursor-pointer"
+              >
+                <span>All 4 Models Result at Bottom ↓</span>
+              </button>
+            </div>
           </div>
 
           {/* Visual Confidence Gauge / Badge */}
@@ -134,7 +144,7 @@ export default function ResultCard({
 
             <div>
               <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
-                Diagnosis Confidence
+                Ensemble Confidence
               </div>
               <div className={`text-xs font-bold px-2 py-0.5 rounded-md inline-block mt-0.5 border ${confColorClass}`}>
                 {confBadgeText}
@@ -144,9 +154,17 @@ export default function ResultCard({
 
         </div>
 
+        {/* Scope & Laboratory Dataset Note */}
+        <div className="mt-4 p-3 rounded-xl bg-stone-100/80 border border-stone-200 text-stone-700 text-xs flex items-center space-x-2.5">
+          <FlaskConical className="w-4 h-4 text-stone-500 shrink-0" />
+          <span className="font-medium">
+            Trained on laboratory images. Not tested on field photos. Decision support only.
+          </span>
+        </div>
+
         {/* 2. Low Confidence Warning Banner (< 65%) */}
         {showLowConfWarning && (
-          <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 flex items-start space-x-3 text-xs leading-relaxed">
+          <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 flex items-start space-x-3 text-xs leading-relaxed">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <strong className="font-semibold block text-sm mb-0.5">
@@ -160,11 +178,10 @@ export default function ResultCard({
         )}
       </div>
 
-      {/* 3. Visual Explanation Section: Side-by-Side Images & Faithfulness */}
+      {/* 3. Visual Explanation Section: Side-by-Side Images & Grad-CAM */}
       <div className="p-6 sm:p-8 border-b border-stone-200/80">
-        
-        {/* Section Title & Faithfulness Trust Indicator */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
           <div>
             <div className="flex items-center space-x-2">
               <div className="p-1 rounded-md bg-emerald-100 text-emerald-800">
@@ -175,56 +192,44 @@ export default function ResultCard({
               </h2>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
-              Gradient-weighted Class Activation Mapping computed from EfficientNetB0's last conv layer (<code className="font-mono text-[11px] bg-stone-100 px-1 py-0.5 rounded">top_conv</code>).
+              Gradient-weighted Class Activation Mapping from <span className="font-semibold text-stone-700">{activeGradCamModel}</span>'s 7×7 backbone feature maps using pre-softmax class logits.
             </p>
           </div>
 
-          {/* Faithfulness Score Trust Badge with Tooltip */}
-          {faithfulnessPercent !== null && (
-            <div className="relative inline-block">
-              <div
-                onClick={() => setShowTooltip(!showTooltip)}
-                className="cursor-pointer flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-emerald-50/60 border border-stone-200 hover:border-emerald-300 transition-colors shadow-2xs"
-              >
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <div className="text-left">
-                  <div className="text-[10px] uppercase font-semibold tracking-wider text-stone-500">
-                    Faithfulness Metric
-                  </div>
-                  <div className="text-xs font-bold text-stone-900 flex items-center space-x-1">
-                    <span>Explanation reliability:</span>
-                    <span className="text-emerald-700 font-extrabold">{faithfulnessPercent}%</span>
-                    <HelpCircle className="w-3 h-3 text-stone-400 ml-0.5" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Tooltip Popover */}
-              {showTooltip && (
-                <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 p-4 bg-stone-900 text-stone-100 text-xs rounded-2xl shadow-xl z-30 border border-stone-700 leading-relaxed">
-                  <div className="flex items-center space-x-1.5 font-bold text-emerald-400 mb-1.5">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>How Faithfulness is Measured</span>
-                  </div>
-                  <p className="text-stone-300">
-                    The model identified the top 30% most activated regions in the Grad-CAM heatmap, masked them out, and re-evaluated the leaf.
-                  </p>
-                  <p className="mt-1.5 text-stone-400">
-                    The reliability score (<span className="text-emerald-300 font-semibold">{faithfulnessPercent}%</span>) represents the drop in model confidence when those salient visual regions were removed. Higher scores confirm the model truly relied on this evidence.
-                  </p>
+          {/* Model Selector for Grad-CAM */}
+          {onChangeGradCamModel && (
+            <div className="flex flex-wrap items-center gap-1.5 bg-stone-100 p-1 rounded-xl border border-stone-200 text-[11px] font-semibold">
+              {GRADCAM_MODELS.map((mName) => {
+                const isActive = activeGradCamModel === mName;
+                return (
                   <button
-                    onClick={() => setShowTooltip(false)}
-                    className="mt-2.5 text-[11px] text-emerald-400 font-medium hover:underline block text-right"
+                    key={mName}
+                    type="button"
+                    disabled={isExplainLoading}
+                    onClick={() => onChangeGradCamModel(mName)}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      isActive
+                        ? 'bg-white text-emerald-900 shadow-2xs font-bold border border-emerald-200'
+                        : 'text-stone-600 hover:text-stone-900'
+                    } ${isExplainLoading ? 'opacity-60 cursor-wait' : ''}`}
                   >
-                    Close
+                    {mName}
                   </button>
-                </div>
-              )}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Model reliability for this class (pulled from per_class_metrics in model_metrics.json) */}
+        {/* Approximate 7x7 Grad-CAM Note (replaces removed faithfulness/reliability percentage) */}
+        <div className="mb-6 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 text-amber-900 text-xs flex items-start space-x-2.5">
+          <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <span className="font-medium leading-relaxed">
+            The heatmap is approximate (coarse 7x7) and does not prove that the model looks at the lesion.
+          </span>
+        </div>
+
+        {/* Class Benchmark Summary */}
         {classMetrics && (
           <div className="mb-6 p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -235,19 +240,18 @@ export default function ResultCard({
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                      Model reliability for this class
+                      Per-Class Benchmark Reference
                     </span>
                     <span className="text-[10px] px-2 py-0.2 rounded-full font-semibold bg-emerald-200/70 text-emerald-900 border border-emerald-300">
-                      {classMetrics.support} validation samples
+                      {classMetrics.support} test samples
                     </span>
                   </div>
                   <p className="text-xs text-emerald-900 mt-1 font-medium">
-                    This model correctly identifies <strong>{predicted_class || crop_name}</strong> {Math.round(classMetrics.f1_score * 100)}% of the time (F1: {classMetrics.f1_score}).
+                    Historical class statistics for <strong>{predicted_class || crop_name}</strong> (F1: {classMetrics.f1_score}).
                   </p>
                 </div>
               </div>
 
-              {/* Metric Breakdown Badges */}
               <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                 <div className="px-2.5 py-1.5 rounded-xl bg-white border border-emerald-200 text-center shadow-2xs min-w-[70px]">
                   <div className="text-[10px] font-semibold text-stone-400 uppercase">Precision</div>
@@ -285,7 +289,7 @@ export default function ResultCard({
 
         {/* Image Display Grid (Side-by-Side) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          
+
           {/* Original Image */}
           <div className="flex flex-col">
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-stone-200 bg-stone-100 shadow-xs group">
@@ -306,7 +310,7 @@ export default function ResultCard({
           {/* Grad-CAM Overlay */}
           <div className="flex flex-col">
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-emerald-300/80 bg-stone-900 shadow-xs group">
-              {explanation?.heatmap_overlay ? (
+              {!isExplainLoading && explanation?.heatmap_overlay ? (
                 <img
                   src={explanation.heatmap_overlay}
                   alt="Grad-CAM Heatmap Overlay"
@@ -315,18 +319,17 @@ export default function ResultCard({
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-stone-400 p-6 text-center text-xs">
                   <Layers className="w-8 h-8 mb-2 animate-spin text-emerald-500" />
-                  Generating Grad-CAM overlay...
+                  Generating 7×7 Grad-CAM overlay for {gradCamModel}...
                 </div>
               )}
               <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-emerald-950/80 text-emerald-300 text-xs font-semibold backdrop-blur-xs border border-emerald-700/50 flex items-center space-x-1.5">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Grad-CAM Activation Map</span>
+                <span>Grad-CAM ({activeGradCamModel})</span>
               </div>
             </div>
-            
-            {/* Required Caption */}
-            <p className="text-xs text-emerald-800 bg-emerald-50/70 p-2 rounded-xl mt-2 text-center font-medium border border-emerald-100">
-              💡 Highlighted areas show what the model focused on to make this decision.
+
+            <p className="text-xs text-stone-600 bg-stone-50 p-2 rounded-xl mt-2 text-center font-medium border border-stone-200">
+              Coarse 7×7 backbone feature activation overlay ({activeGradCamModel})
             </p>
           </div>
 
@@ -336,9 +339,8 @@ export default function ResultCard({
 
       {/* 4. Pathology Description & Action Section */}
       <div className="p-6 sm:p-8 bg-stone-50/50">
-        
+
         {is_healthy ? (
-          /* Healthy Reassuring Card */
           <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200/90 shadow-xs flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-600/30">
               <CheckCircle className="w-6 h-6" />
@@ -353,10 +355,8 @@ export default function ResultCard({
             </div>
           </div>
         ) : (
-          /* Disease Explanation Cards */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            
-            {/* What this means card */}
+
             <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
               <div className="flex items-center space-x-2 text-stone-900 font-bold text-sm mb-2">
                 <div className="p-1 rounded-md bg-stone-100 text-stone-700">
@@ -370,7 +370,6 @@ export default function ResultCard({
               </p>
             </div>
 
-            {/* Recommended action card */}
             <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
               <div className="flex items-center space-x-2 text-stone-900 font-bold text-sm mb-2">
                 <div className="p-1 rounded-md bg-emerald-100 text-emerald-800">
@@ -387,12 +386,12 @@ export default function ResultCard({
           </div>
         )}
 
-        {/* 5. Top 3 Predictions Breakdown for Transparent Decision-Making */}
+        {/* 5. Top 3 Predictions Breakdown */}
         {top_3_predictions.length > 0 && (
           <div className="mt-6 pt-6 border-t border-stone-200/70">
             <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-3 flex items-center justify-between">
-              <span>Top Model Candidates & Probabilities</span>
-              <span className="text-[11px] font-normal text-stone-400">Softmax distribution</span>
+              <span>Top Ensemble Candidates & Probabilities</span>
+              <span className="text-[11px] font-normal text-stone-400">Mean of 4 softmax vectors</span>
             </h4>
 
             <div className="space-y-2.5">
@@ -421,9 +420,7 @@ export default function ResultCard({
                       <div className="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            idx === 0
-                              ? confBarColor
-                              : 'bg-stone-300'
+                            idx === 0 ? confBarColor : 'bg-stone-300'
                           }`}
                           style={{ width: `${Math.max(itemPercent, 4)}%` }}
                         />
@@ -438,6 +435,12 @@ export default function ResultCard({
             </div>
           </div>
         )}
+
+        {/* 6. Gemini AI Agronomist Deep Pathology, Remedies & Q&A Protocol */}
+        <GeminiDiseaseInsights
+          diseaseInfo={diseaseInfo}
+          prediction={prediction}
+        />
 
       </div>
 

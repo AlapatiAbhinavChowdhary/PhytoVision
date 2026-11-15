@@ -1,0 +1,5 @@
+,model,params_m,train_min,inf_ms_per_img,val_acc,precision,recall,f1
+1,ConvNeXtTiny,27.85,50.2,4.568,0.9919,0.992,0.9919,0.9919
+2,EfficientNetB0,4.1,,4.214,0.9912,0.9913,0.9912,0.9912
+3,MobileNetV3Large,3.03,21.8,1.65,0.9883,0.9883,0.9883,0.9883
+4,DenseNet121,7.08,50.1,4.663,0.9817,0.9817,0.9817,0.9816

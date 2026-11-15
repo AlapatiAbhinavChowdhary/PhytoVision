@@ -5,15 +5,18 @@ import ImageUploader from './components/ImageUploader';
 import LoadingState from './components/LoadingState';
 import ResultCard from './components/ResultCard';
 import ModelPerformance from './components/ModelPerformance';
+import MultiModelComparison from './components/MultiModelComparison';
 import {
   checkBackendHealth,
   predictImage,
   explainImage,
   fetchDiseaseInfo,
   fetchModelMetrics,
+  predictAllModels,
+  fetchModelsInfo,
   API_BASE_URL
 } from './api';
-import { AlertTriangle, RefreshCw, Leaf, ArrowRight } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Leaf, ArrowRight, FlaskConical } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('diagnosis'); // 'diagnosis' | 'performance'
@@ -31,6 +34,14 @@ export default function App() {
   const [prediction, setPrediction] = useState(null);
   const [explanation, setExplanation] = useState(null);
   const [diseaseInfo, setDiseaseInfo] = useState(null);
+  const [gradCamModel, setGradCamModel] = useState('ConvNeXtTiny');
+  const [isExplainLoading, setIsExplainLoading] = useState(false);
+
+  // Multi-model comparison states
+  const [multiModelData, setMultiModelData] = useState(null);
+  const [modelsInfo, setModelsInfo] = useState(null);
+  const [isMultiModelLoading, setIsMultiModelLoading] = useState(false);
+  const [multiModelError, setMultiModelError] = useState(null);
 
   // Monitor backend health
   useEffect(() => {
@@ -61,6 +72,17 @@ export default function App() {
       .catch((err) => {
         console.warn('Could not load model metrics:', err);
       });
+
+    fetchModelsInfo()
+      .then((info) => {
+        if (isMounted && info) {
+          setModelsInfo(info);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load models info:', err);
+      });
+
     return () => {
       isMounted = false;
     };
@@ -93,6 +115,10 @@ export default function App() {
     setPrediction(null);
     setExplanation(null);
     setDiseaseInfo(null);
+    setMultiModelData(null);
+    setMultiModelError(null);
+    setIsMultiModelLoading(false);
+    setIsExplainLoading(false);
     setError(null);
   };
 
@@ -105,15 +131,13 @@ export default function App() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch the sample image asset and convert to a File object
       const res = await fetch(sample.url);
       if (!res.ok) throw new Error('Could not load sample image file.');
       const blob = await res.blob();
       const file = new File([blob], `${sample.id}.jpg`, { type: 'image/jpeg' });
       setSelectedFile(file);
 
-      // Trigger full diagnostic pipeline
-      await runDiagnosis(file, sample.url);
+      await runDiagnosis(file);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to process sample image.');
@@ -121,21 +145,26 @@ export default function App() {
     }
   };
 
-  const runDiagnosis = async (file, displayUrl) => {
+  const runDiagnosis = async (file) => {
     setIsLoading(true);
     setError(null);
     setPrediction(null);
     setExplanation(null);
     setDiseaseInfo(null);
+    setMultiModelData(null);
+    setMultiModelError(null);
+    setIsMultiModelLoading(false);
 
     try {
-      // Step 1: Predict
+      // Step 1: /predict runs all 4 models + Ensemble + Agreement
       const predResult = await predictImage(file);
       setPrediction(predResult);
+      setMultiModelData(predResult);
 
-      // Step 2 & 3: Run Grad-CAM Explain and Disease Info concurrently
+      // Step 2 & 3: Run 7x7 Grad-CAM Explain for selected model and Disease Info concurrently
+      setIsExplainLoading(true);
       const [explainResult, infoResult] = await Promise.all([
-        explainImage(file, predResult.raw_class).catch((e) => {
+        explainImage(file, predResult.raw_class, gradCamModel).catch((e) => {
           console.warn('Explain failed:', e);
           return null;
         }),
@@ -147,8 +176,8 @@ export default function App() {
 
       setExplanation(explainResult);
       setDiseaseInfo(infoResult);
+      setIsExplainLoading(false);
 
-      // Scroll smoothly to results
       setTimeout(() => {
         const resultsElement = document.getElementById('results-section');
         if (resultsElement) {
@@ -162,14 +191,30 @@ export default function App() {
         err.message ||
         'Unable to complete diagnosis. Please ensure the backend server is running.'
       );
+      setIsExplainLoading(false);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleChangeGradCamModel = async (newModelName) => {
+    setGradCamModel(newModelName);
+    if (!selectedFile || !prediction) return;
+
+    setIsExplainLoading(true);
+    try {
+      const explainResult = await explainImage(selectedFile, prediction.raw_class, newModelName);
+      setExplanation(explainResult);
+    } catch (e) {
+      console.warn('Grad-CAM model switch failed:', e);
+    } finally {
+      setIsExplainLoading(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (!selectedFile) return;
-    runDiagnosis(selectedFile, previewUrl);
+    runDiagnosis(selectedFile);
   };
 
   const handleViewPerformanceForClass = (rawClass) => {
@@ -189,7 +234,7 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 pb-16">
-        
+
         {/* Backend offline warning if server unreachable */}
         {!isBackendOnline && (
           <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
@@ -216,14 +261,20 @@ export default function App() {
             <div className="text-center max-w-2xl mx-auto mb-4">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
                 <Leaf className="w-3.5 h-3.5" />
-                <span>AI Plant Pathology + Explainable AI (XAI)</span>
+                <span>4-Model Ensemble · Test Accuracy 99.02% (mean of 3 seeds)</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-extrabold text-stone-900 tracking-tight leading-tight">
                 Diagnose Crop Diseases with <span className="text-emerald-700 underline decoration-emerald-300">Visual Evidence</span>
               </h1>
               <p className="text-sm text-stone-600 mt-2.5 leading-relaxed">
-                Upload an affected leaf or pick a test sample below. Our model predicts across 38 crop disease categories, highlights symptomatic leaf tissue using Grad-CAM, and verifies explanation trustworthiness.
+                Upload an affected leaf or pick a sample below. Four vision models predict across 38 crop disease classes, form a softmax-averaged Ensemble, and render an approximate 7×7 Grad-CAM heatmap.
               </p>
+
+              {/* Scope notice */}
+              <div className="mt-3 inline-flex items-center space-x-1.5 text-[11px] font-medium text-stone-600 bg-stone-100 px-3 py-1 rounded-full border border-stone-200">
+                <FlaskConical className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                <span>Trained on laboratory images. Not tested on field photos. Decision support only.</span>
+              </div>
 
               {/* Quick Model Performance banner button */}
               <div className="mt-3">
@@ -231,7 +282,7 @@ export default function App() {
                   onClick={() => setActiveTab('performance')}
                   className="inline-flex items-center space-x-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1 rounded-full border border-emerald-200/80 transition-colors cursor-pointer"
                 >
-                  <span>Explore full 99.12% accuracy evaluation & 38×38 confusion matrix</span>
+                  <span>Explore test-set benchmark (Ensemble 99.02% · ConvNeXtTiny 98.93%) & 38×38 matrix</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -284,7 +335,31 @@ export default function App() {
                   originalImageUrl={previewUrl}
                   modelMetrics={modelMetrics}
                   onViewPerformanceTab={handleViewPerformanceForClass}
+                  gradCamModel={gradCamModel}
+                  onChangeGradCamModel={handleChangeGradCamModel}
+                  isExplainLoading={isExplainLoading}
                 />
+
+                {/* All Models Comparative Results (Directly rendered at the bottom) */}
+                <div id="all-models-results" className="mt-8 mb-12">
+                  <MultiModelComparison
+                    data={multiModelData}
+                    modelsInfo={modelsInfo}
+                    isLoading={isMultiModelLoading}
+                    error={multiModelError}
+                    previewUrl={previewUrl}
+                    onRetry={() => {
+                      if (selectedFile) {
+                        setIsMultiModelLoading(true);
+                        setMultiModelError(null);
+                        predictAllModels(selectedFile)
+                          .then(setMultiModelData)
+                          .catch((e) => setMultiModelError(e.message))
+                          .finally(() => setIsMultiModelLoading(false));
+                      }
+                    }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -294,6 +369,7 @@ export default function App() {
         {activeTab === 'performance' && (
           <ModelPerformance
             metrics={modelMetrics}
+            modelsInfo={modelsInfo}
             selectedClassFocus={selectedClassFocus}
             onSelectClassFocus={setSelectedClassFocus}
           />
@@ -309,10 +385,10 @@ export default function App() {
               PV
             </div>
             <span className="font-semibold text-stone-700">PhytoVision AI</span>
-            <span>· PlantVillage Fine-Tuned EfficientNetB0</span>
+            <span>· Test Acc (3-seed mean): Ensemble 99.02% · ConvNeXtTiny 98.93%</span>
           </div>
           <div className="text-stone-400 text-[11px]">
-            Overall Accuracy 99.12% · 38 Classes · Grad-CAM Visual Attention
+            Trained on laboratory images. Not tested on field photos. Decision support only.
           </div>
         </div>
       </footer>

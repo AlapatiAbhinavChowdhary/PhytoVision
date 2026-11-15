@@ -9,7 +9,7 @@ export const SAMPLE_DATA = [
     condition: 'Late Blight',
     isHealthy: false,
     severity: 'High',
-    url: '/samples/tomato_late_blight.jpg',
+    url: '/samples/tomato_late_blight.jpg?v=real',
     description: 'Dark water-soaked lesions across leaf blades'
   },
   {
@@ -19,7 +19,7 @@ export const SAMPLE_DATA = [
     condition: 'Healthy Leaf',
     isHealthy: true,
     severity: 'None',
-    url: '/samples/tomato_healthy.jpg',
+    url: '/samples/tomato_healthy.jpg?v=real',
     description: 'Clean emerald foliage with zero lesions'
   },
   {
@@ -29,7 +29,7 @@ export const SAMPLE_DATA = [
     condition: 'Apple Scab',
     isHealthy: false,
     severity: 'Medium',
-    url: '/samples/apple_scab.jpg',
+    url: '/samples/apple_scab.jpg?v=real',
     description: 'Dark velvety fungal spots on leaf surfaces'
   },
   {
@@ -39,7 +39,7 @@ export const SAMPLE_DATA = [
     condition: 'Common Rust',
     isHealthy: false,
     severity: 'Medium',
-    url: '/samples/corn_common_rust.jpg',
+    url: '/samples/corn_common_rust.jpg?v=real',
     description: 'Cinnamon-brown powdery rust pustules'
   },
   {
@@ -49,7 +49,7 @@ export const SAMPLE_DATA = [
     condition: 'Bacterial Spot',
     isHealthy: false,
     severity: 'High',
-    url: '/samples/bell_pepper_bacterial_spot.jpg',
+    url: '/samples/bell_pepper_bacterial_spot.jpg?v=real',
     description: 'Greasy spots with distinctive yellow halos'
   },
   {
@@ -59,7 +59,7 @@ export const SAMPLE_DATA = [
     condition: 'Black Rot',
     isHealthy: false,
     severity: 'High',
-    url: '/samples/grape_black_rot.jpg',
+    url: '/samples/grape_black_rot.jpg?v=real',
     description: 'Reddish-brown necrotic patches'
   },
 ];

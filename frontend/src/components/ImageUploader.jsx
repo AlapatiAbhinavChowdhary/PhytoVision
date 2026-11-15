@@ -151,7 +151,7 @@ export default function ImageUploader({
                 Leaf Image Loaded
               </h4>
               <p className="text-xs text-stone-600 mt-1">
-                Our model will analyze disease symptoms, generate a Grad-CAM visual attention heatmap on the last convolutional layer, and verify explanation faithfulness.
+                All 4 models and their Ensemble will analyze disease symptoms and generate an approximate 7×7 Grad-CAM visual attention heatmap.
               </p>
             </div>
 

@@ -44,14 +44,19 @@ export async function predictImage(file) {
   return await res.json();
 }
 
-export async function explainImage(file, targetClass = null) {
+export async function explainImage(file, targetClass = null, modelName = 'ConvNeXtTiny') {
   const formData = new FormData();
   formData.append('file', file);
 
-  let url = `${API_BASE_URL}/explain`;
-  if (targetClass) {
-    url += `?target_class=${encodeURIComponent(targetClass)}`;
+  const params = new URLSearchParams();
+  if (modelName) {
+    params.set('model_name', modelName);
   }
+  if (targetClass) {
+    params.set('target_class', targetClass);
+  }
+  const queryStr = params.toString();
+  const url = `${API_BASE_URL}/explain${queryStr ? `?${queryStr}` : ''}`;
 
   const res = await fetch(url, {
     method: 'POST',
@@ -94,4 +99,66 @@ export async function fetchModelMetrics() {
     throw new Error('Failed to load model metrics.');
   }
   return await staticRes.json();
+}
+
+export async function checkGeminiStatus() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/gemini-status`);
+    if (!res.ok) return { configured: false };
+    return await res.json();
+  } catch {
+    return { configured: false };
+  }
+}
+
+export async function askGeminiAgronomist({ question, crop_name, disease_name, raw_class, is_healthy }) {
+  const res = await fetch(`${API_BASE_URL}/ask-gemini`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      question,
+      crop_name,
+      disease_name,
+      raw_class,
+      is_healthy: Boolean(is_healthy),
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to contact Gemini Agronomist.' }));
+    throw new Error(err.detail || 'Failed to get answer from Gemini.');
+  }
+
+  return await res.json();
+}
+
+export async function predictAllModels(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE_URL}/predict/all`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Multi-model prediction failed.' }));
+    throw new Error(errorData.detail || 'Multi-model prediction failed.');
+  }
+
+  return await res.json();
+}
+
+export async function fetchModelsInfo() {
+  const res = await fetch(`${API_BASE_URL}/models/info`, {
+    method: 'GET',
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return await res.json();
 }

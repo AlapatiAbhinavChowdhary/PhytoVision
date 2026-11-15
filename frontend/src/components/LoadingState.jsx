@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, Sparkles, Brain, CheckCircle2 } from 'lucide-react';
 
 const STEPS = [
-  'Preprocessing leaf foliage and normalizing channels...',
-  'Evaluating 38 disease classes with EfficientNetB0...',
-  'Extracting feature gradients from top_conv layer...',
-  'Generating Grad-CAM attention heatmap overlay...',
-  'Masking top-30% salient region to compute explanation faithfulness...'
+  'Preprocessing leaf image for each of the 4 model scales...',
+  'Running inference on EfficientNetB0, DenseNet121, MobileNetV3Large & ConvNeXtTiny...',
+  'Averaging softmax vectors for Ensemble & checking agreement...',
+  'Extracting 7×7 backbone feature maps for Grad-CAM...',
+  'Overlaying coarse Grad-CAM attention map...'
 ];
 
 export default function LoadingState() {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BarChart3,
   CheckCircle2,
@@ -11,57 +11,137 @@ import {
   Info,
   Maximize2,
   Minimize2,
-  Eye,
-  SlidersHorizontal,
   Layers,
-  Sparkles,
   ShieldCheck,
-  Filter
+  Filter,
+  Award,
+  Zap,
+  Scale,
+  Cpu,
+  Clock,
+  Sparkles
 } from 'lucide-react';
 
 function parseClassName(raw) {
   if (!raw) return { crop: 'Unknown', disease: 'Unknown', isHealthy: false };
   const parts = raw.split('___');
   let crop = parts[0].replace(/_/g, ' ');
-  // Clean special naming like Cherry_(including_sour)
   crop = crop.replace(/\s*\([^)]*\)/g, '');
   const disease = parts[1] ? parts[1].replace(/_/g, ' ') : 'Unknown';
   const isHealthy = disease.toLowerCase().includes('healthy');
   return { crop, disease, isHealthy };
 }
 
-export default function ModelPerformance({ metrics, selectedClassFocus, onSelectClassFocus }) {
+// Research paper test accuracy metrics (%, test set, mean of 3 seeds)
+const DEFAULT_LEADERBOARD = [
+  {
+    model: 'Ensemble',
+    params_m: '42.06',
+    train_min: '—',
+    inf_ms_per_img: '~15.1',
+    test_acc: 99.02,
+    badge: 'Best Overall (Ensemble) 🏆',
+    highlight: 'Mean of 4 Softmax Vectors',
+    description: 'Unweighted mean probability consensus across ConvNeXtTiny, EfficientNetB0, MobileNetV3Large, and DenseNet121.'
+  },
+  {
+    model: 'ConvNeXtTiny',
+    params_m: '27.85',
+    train_min: '50.2',
+    inf_ms_per_img: '4.568',
+    test_acc: 98.93,
+    badge: 'Best Single Model 🌟',
+    highlight: 'Highest Single-Model Test Accuracy',
+    description: 'Modern vision architecture featuring 7×7 depthwise convolutions, inverted bottlenecks, and LayerNorm.'
+  },
+  {
+    model: 'EfficientNetB0',
+    params_m: '4.10',
+    train_min: '—',
+    inf_ms_per_img: '4.214',
+    test_acc: 97.93,
+    badge: 'Compound Scaled CNN 🌿',
+    highlight: 'Balanced Scaling & Efficiency',
+    description: 'Compound scaling method optimizing network depth, width, and resolution with MBConv inverted residual blocks.'
+  },
+  {
+    model: 'MobileNetV3Large',
+    params_m: '3.03',
+    train_min: '21.8',
+    inf_ms_per_img: '1.650',
+    test_acc: 97.86,
+    badge: 'Fastest Edge / Mobile ⚡',
+    highlight: 'Lowest Inference Latency',
+    description: 'Hardware-aware Neural Architecture Search (NAS) model tailored for ultra-low latency mobile & edge deployment.'
+  },
+  {
+    model: 'DenseNet121',
+    params_m: '7.08',
+    train_min: '50.1',
+    inf_ms_per_img: '4.663',
+    test_acc: 97.28,
+    badge: 'Dense Feature Reuse 🔗',
+    highlight: 'Maximum Gradient Propagation',
+    description: 'Densely connected convolutional layers connecting all layers directly to maximize feature reuse and reduce vanishing gradients.'
+  }
+];
+
+export default function ModelPerformance({
+  metrics,
+  modelsInfo,
+  selectedClassFocus,
+  onSelectClassFocus
+}) {
+  const [selectedModel, setSelectedModel] = useState('ALL'); // 'ALL' | 'ConvNeXtTiny' | 'EfficientNetB0' | 'MobileNetV3Large' | 'DenseNet121'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCropFilter, setSelectedCropFilter] = useState('ALL');
   const [sortField, setSortField] = useState('f1_score');
-  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' | 'desc'
-  
-  // Matrix controls
-  const [hoveredCell, setHoveredCell] = useState(null); // { row, col, count, trueClass, predClass }
-  const [matrixFilterMode, setMatrixFilterMode] = useState('all'); // 'all' | 'errors_only'
-  const [highlightedClassIdx, setHighlightedClassIdx] = useState(null);
-  const [cellSize, setCellSize] = useState('standard'); // 'compact' | 'standard' | 'large'
+  const [sortDirection, setSortDirection] = useState('desc');
 
-  if (!metrics) {
-    return (
-      <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center shadow-xs">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <Layers className="w-6 h-6" />
-        </div>
-        <h3 className="text-lg font-bold text-stone-900">Loading Model Performance Data...</h3>
-        <p className="text-stone-500 text-xs mt-1">Retrieving validation benchmark metrics and confusion matrix.</p>
-      </div>
-    );
-  }
+  // Matrix controls
+  const [hoveredCell, setHoveredCell] = useState(null);
+  const [matrixFilterMode, setMatrixFilterMode] = useState('all');
+  const [highlightedClassIdx, setHighlightedClassIdx] = useState(null);
+  const [cellSize, setCellSize] = useState('standard');
+
+  useEffect(() => {
+    if (selectedClassFocus) {
+      setSearchTerm(selectedClassFocus);
+      if (onSelectClassFocus) {
+        onSelectClassFocus(null);
+      }
+    }
+  }, [selectedClassFocus, onSelectClassFocus]);
+
+  // Merge runtime leaderboard data from /models/info with metadata
+  const leaderboardData = useMemo(() => {
+    if (modelsInfo?.leaderboard && modelsInfo.leaderboard.length > 0) {
+      return modelsInfo.leaderboard.map((row) => {
+        const fallback = DEFAULT_LEADERBOARD.find((d) => d.model.toLowerCase() === (row.model || '').toLowerCase()) || {};
+        return {
+          ...fallback,
+          ...row
+        };
+      });
+    }
+    return DEFAULT_LEADERBOARD;
+  }, [modelsInfo]);
+
+  // Active model metrics object
+  const activeModelMeta = useMemo(() => {
+    if (selectedModel === 'ALL') {
+      return leaderboardData.find((m) => m.model === 'Ensemble') || leaderboardData[0];
+    }
+    return leaderboardData.find((m) => m.model === selectedModel) || leaderboardData[0];
+  }, [selectedModel, leaderboardData]);
 
   const {
-    overall_accuracy = 0.9912,
     per_class_metrics = {},
     confusion_matrix = [],
     class_names = []
-  } = metrics;
+  } = metrics || {};
 
-  // Aggregate stats
+  // Aggregate stats from per_class_metrics
   const summaryStats = useMemo(() => {
     const classKeys = Object.keys(per_class_metrics);
     const count = classKeys.length || 1;
@@ -87,7 +167,6 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
     };
   }, [per_class_metrics]);
 
-  // Unique crop categories for filter pills
   const availableCrops = useMemo(() => {
     const crops = new Set();
     class_names.forEach((cn) => {
@@ -97,7 +176,6 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
     return Array.from(crops).sort();
   }, [class_names]);
 
-  // Prepared per-class rows for table
   const tableRows = useMemo(() => {
     return class_names.map((raw, idx) => {
       const metric = per_class_metrics[raw] || { precision: 0, recall: 0, f1_score: 0, support: 0 };
@@ -111,7 +189,6 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
     });
   }, [class_names, per_class_metrics]);
 
-  // Filtered & Sorted rows
   const filteredRows = useMemo(() => {
     return tableRows
       .filter((row) => {
@@ -141,7 +218,6 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
       });
   }, [tableRows, selectedCropFilter, searchTerm, sortField, sortDirection]);
 
-  // Max support count in confusion matrix diagonal for relative coloring
   const maxDiagonalVal = useMemo(() => {
     let maxVal = 1;
     for (let i = 0; i < confusion_matrix.length; i++) {
@@ -151,6 +227,18 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
     }
     return maxVal;
   }, [confusion_matrix]);
+
+  if (!metrics) {
+    return (
+      <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <Layers className="w-6 h-6" />
+        </div>
+        <h3 className="text-lg font-bold text-stone-900">Loading Multi-Model Performance Data...</h3>
+        <p className="text-stone-500 text-xs mt-1">Retrieving validation benchmark metrics for all 4 models.</p>
+      </div>
+    );
+  }
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -184,96 +272,264 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
     document.body.removeChild(link);
   };
 
-  // Cell dimensions based on toggle
   const cellPixelSize = cellSize === 'compact' ? 14 : cellSize === 'large' ? 26 : 20;
+
+  // Active stats depending on selected model (test set, mean of 3 seeds)
+  const activeAcc = Number(activeModelMeta.test_acc || 0).toFixed(2);
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* 1. Header & Primary KPI Cards */}
+      {/* 1. Header & Architecture Selector */}
       <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 pb-6 mb-6">
           <div>
             <div className="flex items-center space-x-2 text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200/60 inline-flex mb-2">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Independent Validation Benchmark</span>
+              <span>4 Models + Ensemble · Test Set (Mean of 3 Seeds)</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-              Model Performance & Evaluation Metrics
+              Multi-Model Test Evaluation & Architecture Benchmark
             </h1>
             <p className="text-xs sm:text-sm text-stone-500 mt-1 leading-relaxed max-w-2xl">
-              Comprehensive statistical evaluation of the fine-tuned EfficientNetB0 architecture across 38 distinct crop categories and foliar pathologies on 17,572 unseen test samples.
+              Test-set accuracy (mean of 3 random seeds) across Ensemble (99.02%), ConvNeXtTiny (98.93%), EfficientNetB0 (97.93%), MobileNetV3Large (97.86%), and DenseNet121 (97.28%).
+            </p>
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 mt-2 inline-block font-medium">
+              Trained on laboratory images. Not tested on field photos. Decision support only.
             </p>
           </div>
 
-          {/* Download CSV Button */}
+          {/* Export CSV Button */}
           <button
             onClick={exportCSV}
             className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 text-xs font-semibold transition-colors shadow-2xs self-start md:self-auto cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-stone-500" />
-            <span>Export CSV</span>
+            <span>Export Metrics CSV</span>
           </button>
         </div>
 
-        {/* 4 Summary Cards Grid */}
+        {/* Model Selector Tabs */}
+        <div className="flex flex-wrap items-center gap-2 mb-6 p-1.5 rounded-2xl bg-stone-50 border border-stone-200/80">
+          <button
+            onClick={() => setSelectedModel('ALL')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+              selectedModel === 'ALL'
+                ? 'bg-white text-emerald-900 shadow-xs border border-emerald-200 font-extrabold'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-white/60'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span>All Models + Ensemble</span>
+          </button>
+
+          {leaderboardData.map((m) => {
+            const isEnsemble = m.model === 'Ensemble';
+            const isConvNeXt = m.model === 'ConvNeXtTiny';
+            const isSelected = selectedModel === m.model;
+            const accStr = Number(m.test_acc || 0).toFixed(2);
+            return (
+              <button
+                key={m.model}
+                onClick={() => setSelectedModel(m.model)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+                  isSelected
+                    ? 'bg-white text-emerald-900 shadow-xs border border-emerald-200 font-extrabold'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-white/60'
+                }`}
+              >
+                <span>{m.model}</span>
+                {(isEnsemble || isConvNeXt) ? (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-extrabold">
+                    {accStr}%
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-stone-500 font-semibold">
+                    {accStr}%
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 4 Summary KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Overall Accuracy */}
+          {/* Test Accuracy */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-sm relative overflow-hidden">
             <div className="absolute -right-4 -bottom-4 w-20 h-20 rounded-full bg-white/10 pointer-events-none" />
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-emerald-100">
-              Overall Accuracy
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-emerald-100 flex items-center justify-between">
+              <span>{selectedModel === 'ALL' ? 'Ensemble Test Accuracy' : `${selectedModel} Test Accuracy`}</span>
+              <Award className="w-3.5 h-3.5 text-emerald-200" />
             </span>
             <div className="text-3xl sm:text-4xl font-black mt-1 tracking-tight">
-              {(overall_accuracy * 100).toFixed(2)}%
+              {activeAcc}%
             </div>
             <p className="text-[11px] text-emerald-100/90 mt-1 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 inline shrink-0" />
-              <span>Top-1 Exact Categorical Match</span>
+              <span>Test set · mean of 3 seeds</span>
             </p>
           </div>
 
-          {/* Macro F1-Score */}
+          {/* Best Single Model */}
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 shadow-2xs">
             <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
-              Macro F1-Score
+              Best Single Architecture
             </span>
             <div className="text-3xl sm:text-4xl font-extrabold text-stone-900 mt-1 tracking-tight">
-              {(summaryStats.macroF1 * 100).toFixed(2)}%
+              98.93%
             </div>
             <p className="text-[11px] text-stone-500 mt-1">
-              Balanced harmonic mean across all 38 classes
+              ConvNeXtTiny (test set, 3-seed mean)
             </p>
           </div>
 
-          {/* Macro Precision & Recall */}
+          {/* Evaluation Protocol */}
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 shadow-2xs">
             <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
-              Precision / Recall
+              Evaluation Protocol
             </span>
             <div className="text-2xl sm:text-3xl font-extrabold text-stone-900 mt-1 tracking-tight">
-              {(summaryStats.macroPrecision * 100).toFixed(1)}% / {(summaryStats.macroRecall * 100).toFixed(1)}%
+              38 Classes
             </div>
             <p className="text-[11px] text-stone-500 mt-1">
-              Macro unweighted class averages
+              PlantVillage lab test split · 3 seeds
             </p>
           </div>
 
-          {/* Total Test Support */}
+          {/* Model Footprint & Latency */}
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 shadow-2xs">
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
-              Test Support
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500 flex items-center justify-between">
+              <span>Footprint & Speed</span>
+              <Zap className="w-3.5 h-3.5 text-amber-500" />
             </span>
-            <div className="text-3xl sm:text-4xl font-extrabold text-stone-900 mt-1 tracking-tight">
-              {summaryStats.totalSupport.toLocaleString()}
+            <div className="text-2xl sm:text-3xl font-extrabold text-stone-900 mt-1 tracking-tight">
+              {activeModelMeta.params_m || '—'}M <span className="text-base text-stone-400 font-normal">/ {activeModelMeta.inf_ms_per_img || '—'}ms</span>
             </div>
             <p className="text-[11px] text-stone-500 mt-1">
-              Annotated images across 38 categories
+              Parameters & inference latency per image
             </p>
           </div>
         </div>
       </div>
 
-      {/* 2. Confusion Matrix Heatmap Section (38x38) */}
+      {/* 2. Side-by-Side Comparative Cards Grid */}
+      <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+          <div className="flex items-center space-x-2">
+            <div className="p-1 rounded-md bg-emerald-100 text-emerald-800">
+              <Scale className="w-4 h-4" />
+            </div>
+            <h2 className="text-lg font-bold text-stone-900">
+              Test Set Comparison (4 Models + Ensemble)
+            </h2>
+          </div>
+          <span className="text-xs text-stone-500 font-medium">
+            Percent, test set, mean of 3 seeds
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {leaderboardData.map((m) => {
+            const isEnsemble = m.model === 'Ensemble';
+            const isWinner = m.model === 'ConvNeXtTiny';
+            const isFastest = m.model === 'MobileNetV3Large';
+            const isSelected = selectedModel === m.model;
+            const testAccNum = Number(m.test_acc || 0).toFixed(2);
+
+            return (
+              <div
+                key={m.model}
+                onClick={() => setSelectedModel(m.model)}
+                className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                  isSelected
+                    ? 'border-emerald-600 bg-emerald-50/30 ring-2 ring-emerald-600/20 shadow-xs'
+                    : isEnsemble || isWinner
+                    ? 'border-emerald-300 bg-emerald-50/10 hover:border-emerald-500'
+                    : 'border-stone-200 hover:border-stone-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-1 mb-2">
+                    <div>
+                      <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-1.5">
+                        <span>{m.model}</span>
+                      </h3>
+                      <span className="text-[10px] font-bold text-emerald-700 block mt-0.5">
+                        {m.badge || ''}
+                      </span>
+                    </div>
+                    {isEnsemble && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700 text-white shadow-2xs">
+                        99.02%
+                      </span>
+                    )}
+                    {isWinner && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white shadow-2xs">
+                        98.93%
+                      </span>
+                    )}
+                    {isFastest && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-2xs">
+                        Fastest
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-stone-500 leading-snug my-2.5 line-clamp-3">
+                    {m.description}
+                  </p>
+
+                  {/* Test Accuracy Bar */}
+                  <div className="space-y-1 my-3 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-stone-500 text-[10px] uppercase font-bold">Test Acc (3 seeds)</span>
+                      <span className="font-extrabold text-emerald-700">{testAccNum}%</span>
+                    </div>
+                    <div className="w-full bg-stone-200 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full"
+                        style={{ width: `${testAccNum}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Spec Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-stone-100">
+                    <div>
+                      <span className="text-stone-400 block text-[10px] font-medium">Latency</span>
+                      <span className="font-bold text-stone-800 font-mono">{m.inf_ms_per_img || '—'} ms</span>
+                    </div>
+                    <div>
+                      <span className="text-stone-400 block text-[10px] font-medium">Params</span>
+                      <span className="font-bold text-stone-800 font-mono">{m.params_m || '—'} M</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-2.5 border-t border-stone-100 text-[11px] font-bold text-emerald-700 flex items-center justify-between">
+                  <span>{isSelected ? 'Currently Viewing' : 'Select Model'}</span>
+                  <span>→</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Scope & Deployment Guide Bar */}
+        <div className="mt-6 p-4 rounded-2xl bg-stone-50 border border-stone-200 text-xs text-stone-600 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-center space-x-2">
+            <Info className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>
+              <strong>Scope Notice:</strong> Trained on laboratory images. Not tested on field photos. Decision support only.
+            </span>
+          </div>
+          <div className="flex items-center space-x-2 text-[11px] font-mono text-stone-500 shrink-0">
+            <span>Ensemble averages 4 softmax vectors (99.02%)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Confusion Matrix Heatmap Section (38x38) */}
       <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-stone-100 pb-5 mb-6">
           <div>
@@ -286,476 +542,358 @@ export default function ModelPerformance({ metrics, selectedClassFocus, onSelect
               </h2>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
-              Rows represent ground truth classes; columns represent predicted classes. Diagonal cells represent true positives.
+              Rows represent ground truth classes; columns represent predicted classes. Diagonal cells indicate correct classifications.
             </p>
           </div>
 
           {/* Matrix Interactive Controls */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Error filter toggle */}
-            <div className="flex items-center rounded-xl bg-stone-100 p-1 border border-stone-200 text-xs font-medium">
+            {/* Filter Toggle */}
+            <div className="flex items-center bg-stone-100 rounded-xl p-1 text-xs">
               <button
                 onClick={() => setMatrixFilterMode('all')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
                   matrixFilterMode === 'all'
-                    ? 'bg-white text-stone-900 shadow-xs font-semibold'
-                    : 'text-stone-600 hover:text-stone-900'
+                    ? 'bg-white text-stone-900 shadow-2xs font-semibold'
+                    : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
                 All Cells
               </button>
               <button
                 onClick={() => setMatrixFilterMode('errors_only')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center space-x-1 ${
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
                   matrixFilterMode === 'errors_only'
-                    ? 'bg-rose-500 text-white shadow-xs font-semibold'
-                    : 'text-stone-600 hover:text-stone-900'
+                    ? 'bg-white text-rose-700 shadow-2xs font-semibold'
+                    : 'text-stone-500 hover:text-stone-900'
                 }`}
               >
-                <span>Spot Confusions Only</span>
+                Errors Only
               </button>
             </div>
 
-            {/* Cell Size Zoom */}
-            <div className="flex items-center space-x-1 px-2.5 py-1 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-600">
-              <span className="text-[11px] font-medium text-stone-400 mr-1">Scale:</span>
+            {/* Cell Size Toggle */}
+            <div className="flex items-center bg-stone-100 rounded-xl p-1 text-xs">
               <button
                 onClick={() => setCellSize('compact')}
-                className={`px-2 py-0.5 rounded cursor-pointer ${cellSize === 'compact' ? 'bg-stone-200 font-bold text-stone-900' : 'hover:bg-stone-100'}`}
+                className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                  cellSize === 'compact' ? 'bg-white text-stone-900 font-bold shadow-2xs' : 'text-stone-500'
+                }`}
+                title="Compact view"
               >
                 S
               </button>
               <button
                 onClick={() => setCellSize('standard')}
-                className={`px-2 py-0.5 rounded cursor-pointer ${cellSize === 'standard' ? 'bg-stone-200 font-bold text-stone-900' : 'hover:bg-stone-100'}`}
+                className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                  cellSize === 'standard' ? 'bg-white text-stone-900 font-bold shadow-2xs' : 'text-stone-500'
+                }`}
+                title="Standard view"
               >
                 M
               </button>
               <button
                 onClick={() => setCellSize('large')}
-                className={`px-2 py-0.5 rounded cursor-pointer ${cellSize === 'large' ? 'bg-stone-200 font-bold text-stone-900' : 'hover:bg-stone-100'}`}
+                className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                  cellSize === 'large' ? 'bg-white text-stone-900 font-bold shadow-2xs' : 'text-stone-500'
+                }`}
+                title="Expanded view"
               >
                 L
               </button>
             </div>
-
-            {/* Clear highlight button */}
-            {highlightedClassIdx !== null && (
-              <button
-                onClick={() => setHighlightedClassIdx(null)}
-                className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 px-2 py-1 bg-emerald-50 rounded-lg border border-emerald-200 cursor-pointer"
-              >
-                Clear Focus (#{highlightedClassIdx + 1})
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Dynamic Hover Inspector / Tooltip Bar */}
-        <div className="mb-4 p-3 rounded-2xl bg-stone-50 border border-stone-200/80 min-h-[44px] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+        {/* Active Inspection Inspector Banner */}
+        <div className="h-10 mb-4 px-4 bg-stone-50 border border-stone-200/80 rounded-xl flex items-center justify-between text-xs text-stone-600">
           {hoveredCell ? (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <div className="flex items-center space-x-1.5">
-                <span className="font-semibold text-stone-500 uppercase text-[10px]">Actual (Row {hoveredCell.row + 1}):</span>
-                <span className="font-bold text-stone-900">
-                  {hoveredCell.trueClass.replace(/___/g, ' → ')}
-                </span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <span className="font-semibold text-stone-500 uppercase text-[10px]">Predicted (Col {hoveredCell.col + 1}):</span>
-                <span className="font-bold text-stone-900">
-                  {hoveredCell.predClass.replace(/___/g, ' → ')}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
-                  hoveredCell.isDiagonal
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    : 'bg-rose-100 text-rose-800 border border-rose-200'
-                }`}>
-                  {hoveredCell.isDiagonal ? '✓ Correct (TP)' : '⚠ Misclassification'}
-                </span>
-                <span className="font-mono font-bold text-stone-800">
-                  Count: {hoveredCell.count} sample{hoveredCell.count === 1 ? '' : 's'}
-                </span>
-              </div>
+            <div className="flex items-center space-x-2 truncate">
+              <span className="font-semibold text-stone-900">
+                True: <span className="text-emerald-700">{hoveredCell.trueClass}</span>
+              </span>
+              <span className="text-stone-400">→</span>
+              <span className="font-semibold text-stone-900">
+                Pred: <span className={hoveredCell.row === hoveredCell.col ? 'text-emerald-700' : 'text-rose-600'}>{hoveredCell.predClass}</span>
+              </span>
+              <span className="text-stone-300">•</span>
+              <span className="font-bold text-stone-800">
+                Count: {hoveredCell.count} samples
+              </span>
             </div>
           ) : (
-            <div className="flex items-center space-x-2 text-stone-500">
-              <Info className="w-3.5 h-3.5 text-stone-400" />
-              <span>Hover over any of the 1,444 matrix cells to inspect exact actual vs predicted sample counts.</span>
-            </div>
+            <span className="text-stone-400 italic">
+              Hover over any matrix cell to inspect exact class pair prediction counts.
+            </span>
           )}
 
-          {/* Matrix Legend */}
-          <div className="flex items-center space-x-3 text-[11px] text-stone-500 shrink-0">
-            <div className="flex items-center space-x-1">
-              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-600 inline-block" />
-              <span>True Positive</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="w-2.5 h-2.5 rounded-xs bg-rose-500 inline-block" />
-              <span>Confusion Error</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="w-2.5 h-2.5 rounded-xs bg-stone-100 border border-stone-200 inline-block" />
-              <span>Zero</span>
-            </div>
-          </div>
+          {highlightedClassIdx !== null && (
+            <button
+              onClick={() => setHighlightedClassIdx(null)}
+              className="text-[11px] text-stone-500 hover:text-stone-800 underline cursor-pointer"
+            >
+              Clear row highlight
+            </button>
+          )}
         </div>
 
-        {/* Scrollable Matrix Container */}
-        <div className="overflow-x-auto overflow-y-auto max-h-[600px] border border-stone-200 rounded-2xl bg-stone-900/5 p-3 scrollbar-thin">
-          <div
-            className="inline-block"
-            style={{
-              minWidth: `${(class_names.length + 1) * cellPixelSize + 140}px`
-            }}
-          >
-            {/* Top axis label indicator */}
-            <div className="flex items-center text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-2 pl-36">
-              <span>Predicted Class (Columns 1 → 38)</span>
-            </div>
+        {/* Scrollable Matrix */}
+        <div className="overflow-x-auto overflow-y-auto max-h-[560px] border border-stone-200 rounded-2xl relative bg-stone-950/2">
+          <table className="border-collapse text-[10px]">
+            <thead className="sticky top-0 z-20 bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="sticky left-0 z-30 bg-stone-100 p-2 font-mono text-[9px] text-stone-500 min-w-[140px] text-left border-r border-stone-200">
+                  True \ Pred (38)
+                </th>
+                {class_names.map((name, colIdx) => {
+                  const { crop, disease } = parseClassName(name);
+                  const isHighlighted = highlightedClassIdx === colIdx;
+                  return (
+                    <th
+                      key={colIdx}
+                      style={{ width: `${cellPixelSize}px`, minWidth: `${cellPixelSize}px` }}
+                      className={`p-1 font-mono text-[8px] text-center truncate border-r border-stone-100 select-none ${
+                        isHighlighted ? 'bg-emerald-100 text-emerald-900 font-bold' : 'text-stone-400'
+                      }`}
+                      title={`Pred #${colIdx}: ${crop} - ${disease}`}
+                    >
+                      {colIdx + 1}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {confusion_matrix.map((row, rowIdx) => {
+                const trueName = class_names[rowIdx] || `Class ${rowIdx}`;
+                const { crop, disease } = parseClassName(trueName);
+                const isRowHighlighted = highlightedClassIdx === rowIdx;
 
-            {/* Matrix Rows */}
-            {confusion_matrix.map((row, rowIdx) => {
-              const trueClassName = class_names[rowIdx] || `Class ${rowIdx + 1}`;
-              const parsedTrue = parseClassName(trueClassName);
-              const isRowFocused = highlightedClassIdx === rowIdx;
-
-              return (
-                <div
-                  key={rowIdx}
-                  className={`flex items-center ${isRowFocused ? 'bg-emerald-50/80 -mx-1 px-1 rounded-sm' : ''}`}
-                >
-                  {/* Left row header: index + name */}
-                  <div
-                    onClick={() => setHighlightedClassIdx(highlightedClassIdx === rowIdx ? null : rowIdx)}
-                    title={`Row ${rowIdx + 1}: ${trueClassName}`}
-                    className="w-36 shrink-0 text-right pr-2 text-[10px] truncate font-medium text-stone-600 hover:text-emerald-700 cursor-pointer select-none"
+                return (
+                  <tr
+                    key={rowIdx}
+                    className={`border-b border-stone-100 transition-colors ${
+                      isRowHighlighted ? 'bg-emerald-50/50' : 'hover:bg-stone-50/60'
+                    }`}
                   >
-                    <span className="font-mono text-stone-400 mr-1">#{rowIdx + 1}</span>
-                    <span>{parsedTrue.crop} {parsedTrue.disease}</span>
-                  </div>
+                    {/* Sticky Row Label */}
+                    <td
+                      onClick={() => setHighlightedClassIdx(rowIdx)}
+                      className={`sticky left-0 z-10 p-2 font-medium truncate text-left border-r border-stone-200 cursor-pointer select-none ${
+                        isRowHighlighted
+                          ? 'bg-emerald-100 text-emerald-950 font-bold'
+                          : 'bg-stone-50 text-stone-700 hover:text-stone-900'
+                      }`}
+                      title={`Click to focus class #${rowIdx + 1}: ${trueName}`}
+                    >
+                      <span className="font-mono text-stone-400 text-[9px] mr-1.5">
+                        #{rowIdx + 1}
+                      </span>
+                      <span className="text-[11px]">{crop}</span>
+                      <span className="text-stone-400 mx-1">·</span>
+                      <span className="text-stone-500 text-[10px]">{disease}</span>
+                    </td>
 
-                  {/* 38 Cells in this row */}
-                  <div className="flex items-center">
+                    {/* Matrix Cells */}
                     {row.map((val, colIdx) => {
-                      const predClassName = class_names[colIdx] || `Class ${colIdx + 1}`;
                       const isDiagonal = rowIdx === colIdx;
-                      const isColFocused = highlightedClassIdx === colIdx;
-                      const isCellFocused = isRowFocused || isColFocused;
+                      const isError = !isDiagonal && val > 0;
 
-                      // Filter out zero / diagonal if in 'errors_only' mode
-                      const isHiddenInErrorMode = matrixFilterMode === 'errors_only' && (isDiagonal || val === 0);
+                      if (matrixFilterMode === 'errors_only' && !isError) {
+                        return (
+                          <td
+                            key={colIdx}
+                            style={{ height: `${cellPixelSize}px`, width: `${cellPixelSize}px` }}
+                            className="p-0 border-r border-stone-100 bg-stone-50/20"
+                          />
+                        );
+                      }
 
-                      // Compute color
-                      let bgColor = 'bg-stone-50';
-                      let textColor = 'text-stone-300';
-
+                      let bgColor = 'bg-stone-50/30';
                       if (isDiagonal) {
-                        // Emerald intensity gradient
-                        const intensity = Math.min(Math.max(val / maxDiagonalVal, 0.4), 1);
-                        if (intensity > 0.85) bgColor = 'bg-emerald-700 text-white';
-                        else if (intensity > 0.6) bgColor = 'bg-emerald-600 text-white';
-                        else bgColor = 'bg-emerald-500 text-white';
+                        const intensity = maxDiagonalVal > 0 ? val / maxDiagonalVal : 1;
+                        if (intensity > 0.8) bgColor = 'bg-emerald-700 text-white font-bold';
+                        else if (intensity > 0.5) bgColor = 'bg-emerald-600 text-white font-bold';
+                        else if (intensity > 0.25) bgColor = 'bg-emerald-500 text-white';
+                        else bgColor = 'bg-emerald-300 text-emerald-950';
                       } else if (val > 0) {
-                        // Off-diagonal confusion error: amber/rose
-                        if (val >= 10) bgColor = 'bg-rose-600 text-white font-extrabold animate-pulse';
-                        else if (val >= 4) bgColor = 'bg-rose-500 text-white font-bold';
-                        else bgColor = 'bg-amber-400 text-amber-950 font-semibold';
+                        if (val > 5) bgColor = 'bg-rose-600 text-white font-bold';
+                        else if (val > 2) bgColor = 'bg-rose-400 text-white';
+                        else bgColor = 'bg-rose-200 text-rose-950 font-medium';
                       }
 
-                      if (isHiddenInErrorMode) {
-                        bgColor = 'bg-stone-100 opacity-20';
-                      }
+                      const predName = class_names[colIdx] || `Class ${colIdx}`;
+                      const predParsed = parseClassName(predName);
 
                       return (
-                        <div
+                        <td
                           key={colIdx}
                           onMouseEnter={() =>
                             setHoveredCell({
                               row: rowIdx,
                               col: colIdx,
                               count: val,
-                              trueClass: trueClassName,
-                              predClass: predClassName,
-                              isDiagonal
+                              trueClass: `${crop} - ${disease}`,
+                              predClass: `${predParsed.crop} - ${predParsed.disease}`
                             })
                           }
                           onMouseLeave={() => setHoveredCell(null)}
-                          onClick={() => setHighlightedClassIdx(rowIdx)}
-                          style={{
-                            width: `${cellPixelSize}px`,
-                            height: `${cellPixelSize}px`
-                          }}
-                          className={`flex items-center justify-center text-[8px] sm:text-[9px] cursor-pointer transition-transform duration-75 m-[0.5px] rounded-[2px] ${bgColor} ${
-                            isCellFocused ? 'ring-1.5 ring-emerald-400 z-10' : ''
-                          } hover:ring-2 hover:ring-stone-900 hover:scale-125 hover:z-20`}
+                          style={{ height: `${cellPixelSize}px`, width: `${cellPixelSize}px` }}
+                          className={`p-0 text-center font-mono border-r border-stone-100 transition-transform ${bgColor} cursor-pointer hover:ring-2 hover:ring-stone-900 hover:z-10`}
                         >
-                          {cellSize !== 'compact' && val > 0 ? val : ''}
-                        </div>
+                          {cellSize === 'large' ? val : val > 0 ? (isDiagonal ? '✓' : val) : ''}
+                        </td>
                       );
                     })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Bottom column indices */}
-            <div className="flex items-center mt-2 pl-36">
-              {class_names.map((_, colIdx) => (
-                <div
-                  key={colIdx}
-                  style={{ width: `${cellPixelSize}px` }}
-                  title={`Col ${colIdx + 1}: ${class_names[colIdx]}`}
-                  className="text-center text-[7px] font-mono text-stone-400 overflow-hidden"
-                >
-                  {colIdx + 1}
-                </div>
-              ))}
-            </div>
-          </div>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-
-        <p className="text-[11px] text-stone-400 mt-2 text-center">
-          💡 Click any row name or class cell to highlight its cross-axial predictions across all 38 categories.
-        </p>
       </div>
 
-      {/* 3. Sortable & Filterable Per-Class Metrics Table */}
+      {/* 4. Per-Class Precision / Recall / F1 Table (All 38 Classes) */}
       <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 pb-5 mb-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 pb-5 mb-6">
           <div>
-            <h2 className="text-lg font-bold text-stone-900">
-              Per-Class Diagnostic Precision, Recall & F1-Score
-            </h2>
+            <div className="flex items-center space-x-2">
+              <div className="p-1 rounded-md bg-emerald-100 text-emerald-800">
+                <Layers className="w-4 h-4" />
+              </div>
+              <h2 className="text-lg font-bold text-stone-900">
+                Per-Class Performance Breakdown (38 Classes)
+              </h2>
+            </div>
             <p className="text-xs text-stone-500 mt-0.5">
-              Click any column header to sort. Use search or quick crop filters to investigate specific cultivars.
+              Precision, recall, and F1 harmonic scores for all 38 individual crop disease and healthy foliage classes.
             </p>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full md:w-72">
-            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          {/* Search Box */}
+          <div className="relative w-full md:w-64">
+            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              placeholder="Search crop or disease..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Filter by crop, disease, or status..."
-              className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-stone-50/50"
             />
           </div>
         </div>
 
-        {/* Crop Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-4 scrollbar-none text-xs">
-          <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider mr-1 flex items-center gap-1">
-            <Filter className="w-3 h-3" />
-            <span>Crop:</span>
-          </span>
+        {/* Crop Filter Badges */}
+        <div className="flex flex-wrap gap-1.5 mb-5 pb-2">
           <button
             onClick={() => setSelectedCropFilter('ALL')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
               selectedCropFilter === 'ALL'
-                ? 'bg-emerald-700 text-white shadow-2xs'
+                ? 'bg-stone-900 text-white'
                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >
             All Crops ({tableRows.length})
           </button>
-          {availableCrops.map((crop) => {
-            const count = tableRows.filter((r) => r.crop.toLowerCase() === crop.toLowerCase()).length;
-            const isSelected = selectedCropFilter.toLowerCase() === crop.toLowerCase();
-            return (
-              <button
-                key={crop}
-                onClick={() => setSelectedCropFilter(isSelected ? 'ALL' : crop)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'bg-emerald-700 text-white shadow-2xs font-semibold'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                }`}
-              >
-                {crop} ({count})
-              </button>
-            );
-          })}
+          {availableCrops.map((c) => (
+            <button
+              key={c}
+              onClick={() => setSelectedCropFilter(c)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                selectedCropFilter === c
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
         </div>
 
-        {/* Table Container */}
-        <div className="overflow-x-auto border border-stone-200/80 rounded-2xl">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-stone-50/80 border-b border-stone-200 text-stone-600 font-semibold text-[11px] uppercase tracking-wider">
-                <th className="py-3 px-3 w-12 text-center text-stone-400">#</th>
-                <th
-                  onClick={() => handleSort('rawClass')}
-                  className="py-3 px-4 cursor-pointer hover:text-emerald-800 select-none"
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Cultivar & Condition</span>
-                    {sortField === 'rawClass' ? (
-                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-stone-300" />
-                    )}
-                  </div>
-                </th>
+        {/* Per-Class Table */}
+        <div className="overflow-x-auto rounded-2xl border border-stone-200">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 font-semibold uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="py-3 px-4">Class Identification</th>
+                <th className="py-3 px-3">Crop</th>
                 <th
                   onClick={() => handleSort('precision')}
-                  className="py-3 px-4 cursor-pointer hover:text-emerald-800 select-none text-right"
+                  className="py-3 px-3 text-right cursor-pointer hover:bg-stone-100 transition-colors"
                 >
-                  <div className="flex items-center justify-end space-x-1">
+                  <span className="inline-flex items-center space-x-1">
                     <span>Precision</span>
-                    {sortField === 'precision' ? (
-                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-stone-300" />
-                    )}
-                  </div>
+                    <ArrowUpDown className="w-3 h-3 text-stone-400" />
+                  </span>
                 </th>
                 <th
                   onClick={() => handleSort('recall')}
-                  className="py-3 px-4 cursor-pointer hover:text-emerald-800 select-none text-right"
+                  className="py-3 px-3 text-right cursor-pointer hover:bg-stone-100 transition-colors"
                 >
-                  <div className="flex items-center justify-end space-x-1">
+                  <span className="inline-flex items-center space-x-1">
                     <span>Recall</span>
-                    {sortField === 'recall' ? (
-                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-stone-300" />
-                    )}
-                  </div>
+                    <ArrowUpDown className="w-3 h-3 text-stone-400" />
+                  </span>
                 </th>
                 <th
                   onClick={() => handleSort('f1_score')}
-                  className="py-3 px-4 cursor-pointer hover:text-emerald-800 select-none text-right"
+                  className="py-3 px-3 text-right cursor-pointer hover:bg-stone-100 transition-colors"
                 >
-                  <div className="flex items-center justify-end space-x-1">
+                  <span className="inline-flex items-center space-x-1">
                     <span>F1-Score</span>
-                    {sortField === 'f1_score' ? (
-                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-stone-300" />
-                    )}
-                  </div>
+                    <ArrowUpDown className="w-3 h-3 text-stone-400" />
+                  </span>
                 </th>
                 <th
                   onClick={() => handleSort('support')}
-                  className="py-3 px-4 cursor-pointer hover:text-emerald-800 select-none text-right"
+                  className="py-3 px-4 text-right cursor-pointer hover:bg-stone-100 transition-colors"
                 >
-                  <div className="flex items-center justify-end space-x-1">
+                  <span className="inline-flex items-center space-x-1">
                     <span>Support</span>
-                    {sortField === 'support' ? (
-                      sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-stone-300" />
-                    )}
-                  </div>
+                    <ArrowUpDown className="w-3 h-3 text-stone-400" />
+                  </span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 bg-white">
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-stone-400">
-                    No classes match "{searchTerm}".
+            <tbody className="divide-y divide-stone-100 font-medium text-stone-700">
+              {filteredRows.map((r) => (
+                <tr key={r.idx} className="hover:bg-stone-50/80 transition-colors">
+                  <td className="py-3 px-4 flex items-center space-x-2">
+                    <span className="font-mono text-stone-400 text-[10px]">#{r.idx + 1}</span>
+                    <span className="font-semibold text-stone-900">{r.disease}</span>
+                    {r.isHealthy && (
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        Healthy
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-stone-600">{r.crop}</td>
+                  <td className="py-3 px-3 text-right font-mono text-stone-900">
+                    {(r.precision * 100).toFixed(1)}%
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-stone-900">
+                    {(r.recall * 100).toFixed(1)}%
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    <span
+                      className={`px-2 py-0.5 rounded-full font-bold font-mono ${
+                        r.f1_score >= 0.98
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : r.f1_score >= 0.95
+                          ? 'bg-stone-100 text-stone-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {(r.f1_score * 100).toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-stone-500">
+                    {r.support}
                   </td>
                 </tr>
-              ) : (
-                filteredRows.map((row) => {
-                  const f1Percent = Math.round(row.f1_score * 100);
-                  const precPercent = Math.round(row.precision * 100);
-                  const recPercent = Math.round(row.recall * 100);
-
-                  return (
-                    <tr
-                      key={row.rawClass}
-                      className="hover:bg-stone-50/80 transition-colors group"
-                    >
-                      <td className="py-3 px-3 text-center font-mono text-[11px] text-stone-400">
-                        {row.idx + 1}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-stone-900">
-                            {row.crop}
-                          </span>
-                          <span className="text-stone-400">•</span>
-                          <span className={row.isHealthy ? 'text-emerald-700 font-medium' : 'text-stone-700'}>
-                            {row.disease}
-                          </span>
-                          {row.isHealthy && (
-                            <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
-                              Healthy
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-stone-400 font-mono mt-0.5">
-                          {row.rawClass}
-                        </div>
-                      </td>
-
-                      {/* Precision */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="font-mono font-bold text-stone-800">
-                          {row.precision.toFixed(3)}
-                        </div>
-                        <div className="w-16 h-1.5 bg-stone-100 rounded-full overflow-hidden ml-auto mt-1">
-                          <div
-                            className="h-full bg-teal-500 rounded-full"
-                            style={{ width: `${precPercent}%` }}
-                          />
-                        </div>
-                      </td>
-
-                      {/* Recall */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="font-mono font-bold text-stone-800">
-                          {row.recall.toFixed(3)}
-                        </div>
-                        <div className="w-16 h-1.5 bg-stone-100 rounded-full overflow-hidden ml-auto mt-1">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full"
-                            style={{ width: `${recPercent}%` }}
-                          />
-                        </div>
-                      </td>
-
-                      {/* F1-Score */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="font-mono font-extrabold text-emerald-700">
-                          {row.f1_score.toFixed(3)}
-                        </div>
-                        <div className="w-16 h-1.5 bg-stone-100 rounded-full overflow-hidden ml-auto mt-1">
-                          <div
-                            className="h-full bg-emerald-600 rounded-full"
-                            style={{ width: `${f1Percent}%` }}
-                          />
-                        </div>
-                      </td>
-
-                      {/* Support */}
-                      <td className="py-3 px-4 text-right font-mono text-stone-600">
-                        {row.support.toLocaleString()}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+              ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Footer Summary */}
-        <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-stone-500 pt-4 mt-2">
-          <span>
-            Showing <strong>{filteredRows.length}</strong> of <strong>{tableRows.length}</strong> class metrics
-          </span>
-          <span className="text-[11px] text-stone-400">
-            Pre-computed evaluation results from PlantVillage validation dataset
-          </span>
         </div>
       </div>
     </div>

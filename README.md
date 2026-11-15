@@ -13,16 +13,24 @@ PhytoVision AI is a full-stack, deep learning-powered plant pathology diagnostic
     - Grad-CAM on the backbone's last convolutional layer (`top_conv`).
     - Faithfulness Score: Evaluates deletion of top 30% activated regions: `(original_confidence - masked_confidence)`.
   - **Pathology Knowledge Base**: Layman explanations, practical recommended actions, and severity ratings for all 38 classes.
+  - **Google Gemini AI Agronomist Layer (`gemini_service.py`)**:
+    - Generates comprehensive, deep pathology breakdowns, environmental spread drivers, field scouting symptoms, dual-column treatment protocols (Organic vs. Chemical), and expert farmer tips.
+    - Interactive Q&A consultation endpoint allowing farmers to ask real-time questions about their crops.
+    - Graceful zero-downtime fallback to local agricultural knowledge base when offline or without API key.
   - **Endpoints**:
     - `POST /predict`: Upload image, get predicted class, host crop, confidence, and top-3 candidates.
     - `POST /explain`: Returns Grad-CAM overlay (base64 PNG) and faithfulness reliability score.
-    - `GET /disease-info/{class_name}`: Returns pathology details and action steps.
+    - `GET /disease-info/{class_name}`: Returns pathology details and Gemini AI treatment insights.
+    - `POST /ask-gemini`: Interactive consultation with Gemini for custom plant questions.
+    - `GET /gemini-status`: Checks if Gemini API key is configured.
     - `GET /health`: Health status & model warmup check.
     - `GET /classes`: All 38 supported classes.
 
 - **Frontend (`/frontend`)**:
   - **Framework**: React + Vite + Tailwind CSS + Lucide Icons
   - **UI/UX**:
+    - **Gemini AI Agronomist Protocol**: Live treatment plan, interactive symptom checklist, organic vs. chemical remedies, long-term cultural prevention, and live Q&A consultation chat.
+
     - Drag-and-drop file uploader with live preview and validation.
     - 6 preloaded quick-try sample cards (`Tomato Late Blight`, `Tomato Healthy`, `Apple Scab`, `Corn Rust`, `Bell Pepper Bacterial Spot`, `Grape Black Rot`).
     - Side-by-side visual comparison between original leaf and Grad-CAM attention overlay.
@@ -109,10 +117,18 @@ deeplearning_proj/
    pip install -r backend/requirements.txt
    ```
 
-5. Start the FastAPI server using Uvicorn:
+5. Configure your Google Gemini API Key:
+   Create or edit [backend/.env](file:///d:/deeplearning_proj/backend/.env) (or copy from `.env.example`):
+   ```ini
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+   *(Get your free key from [Google AI Studio](https://aistudio.google.com/app/apikey). If omitted, the system seamlessly falls back to the built-in 38-class agronomic knowledge base without crashing).*
+
+6. Start the FastAPI server using Uvicorn:
    ```bash
    uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
    ```
+
 
    The backend will be live at `http://127.0.0.1:8000`. You can test health at:
    `http://127.0.0.1:8000/health` or view interactive API docs at `http://127.0.0.1:8000/docs`.
@@ -140,6 +156,28 @@ deeplearning_proj/
    ```
    http://localhost:5173/
    ```
+
+---
+
+## Multi-Model Architecture Comparison & Ensemble 🔬
+
+PhytoVision supports simultaneous comparative inference across four deep vision architectures fine-tuned on the 38 PlantVillage classes:
+
+1. **ConvNeXtTiny** (`ConvNeXtTiny_final.keras`): Top validation accuracy (99.19%) and F1 (0.9919), modern vision backbone.
+2. **EfficientNetB0** (`best_model_final.keras`): Production baseline (99.12% validation accuracy, 4.1M params).
+3. **MobileNetV3Large** (`MobileNetV3Large_final.keras`): High-speed, lightweight edge model (1.65ms latency, 3.03M params, 98.83% accuracy).
+4. **DenseNet121** (`DenseNet121_final.keras`): Feature reuse via dense skip connections (98.17% accuracy, 7.08M params).
+
+### Key Features
+- **Strict Preprocessing Isolation**: Each model uses its dedicated preprocessing function (`tf.keras.applications.*.preprocess_input`) on a distinct array copy.
+- **Ensemble Consensus**: Computes the mean probability vector across all available models to derive an ensemble prediction.
+- **Agreement Voting**: Determines whether models reach unanimous consensus (`all_agree`) with a vote distribution breakdown.
+- **Resilient Fallback**: Independent `try/except` model loading ensures a missing model never impedes other models or the core EfficientNetB0 pipeline.
+- **Configurable Toggle**: Controlled via `ENABLE_MULTI_MODEL` environment variable (default: `true`). When set to `false`, the backend runs purely in single-model mode identical to the original application.
+
+### Multi-Model Endpoints
+- `POST /predict/all`: Uploads leaf photo and returns predictions across all 4 models, the ensemble decision, agreement metrics, and inference latency.
+- `GET /models/info`: Returns runtime validation metrics dynamically read from `leaderboard.csv` along with model availability statuses.
 
 ---
 
