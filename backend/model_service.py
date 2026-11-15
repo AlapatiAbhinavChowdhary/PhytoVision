@@ -94,6 +94,7 @@ class ModelService:
             "raw_class": top_raw_class,
             "confidence": round(top_conf, 4),
             "is_healthy": is_healthy,
+            "validation_metrics": MODEL_METRICS.copy(),
             "top_3_predictions": top_3
         }
 

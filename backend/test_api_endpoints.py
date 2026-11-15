@@ -24,9 +24,17 @@ def test_api():
     assert r.status_code == 200
     assert "predicted_class" in pred
     assert "confidence" in pred
+    assert {"accuracy", "precision", "recall", "f1_score"}.issubset(pred["validation_metrics"])
     assert "top_3_predictions" in pred
 
-    # 2. Test POST /explain
+    # 2. Test GET /metrics
+    r = requests.get("http://127.0.0.1:8000/metrics")
+    print("GET /metrics status:", r.status_code)
+    metrics = r.json()
+    assert r.status_code == 200
+    assert {"accuracy", "precision", "recall", "f1_score"}.issubset(metrics)
+
+    # 3. Test POST /explain
     buf.seek(0)
     files = {"file": ("leaf.jpg", buf, "image/jpeg")}
     r = requests.post("http://127.0.0.1:8000/explain", files=files)
@@ -38,7 +46,7 @@ def test_api():
     print("Heatmap prefix:", explain["heatmap_overlay"][:40])
     print("Faithfulness:", explain["faithfulness_score"])
 
-    # 3. Test GET /disease-info/{class_name}
+    # 4. Test GET /disease-info/{class_name}
     r = requests.get(f"http://127.0.0.1:8000/disease-info/{pred['raw_class']}")
     print("GET /disease-info status:", r.status_code)
     info = r.json()

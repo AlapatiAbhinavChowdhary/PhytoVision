@@ -538,7 +538,7 @@ export default function ModelPerformance({
                 <BarChart3 className="w-4 h-4" />
               </div>
               <h2 className="text-lg font-bold text-stone-900">
-                Confusion Matrix Heatmap (38 × 38)
+                Confusion Matrix Heatmap ({class_count} × {class_count})
               </h2>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">

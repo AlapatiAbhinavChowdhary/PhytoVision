@@ -13,6 +13,18 @@ _CLASS_NAMES_PATH = _NEWMODELS_CLASS_PATH if _NEWMODELS_CLASS_PATH.exists() else
 with open(_CLASS_NAMES_PATH, "r", encoding="utf-8") as _f:
     CLASS_NAMES = json.load(_f)
 
+# Aggregate scores from the validation classification report generated in
+# PhytoVision.ipynb for the final model (17,572 validation images).
+MODEL_METRICS = {
+    'accuracy': 0.991,
+    'precision': 0.991,
+    'recall': 0.991,
+    'f1_score': 0.991,
+    'dataset': 'PlantVillage validation set',
+    'sample_count': 17572,
+    'average': 'weighted'
+}
+
 # Disease Information Database: accurate, concise layman explanations & practical advice
 DISEASE_INFO = {
     'Apple___Apple_scab': {

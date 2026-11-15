@@ -4,11 +4,13 @@ import SampleGallery from './components/SampleGallery';
 import ImageUploader from './components/ImageUploader';
 import LoadingState from './components/LoadingState';
 import ResultCard from './components/ResultCard';
+import ModelMetricsPanel from './components/ModelMetricsPanel';
 import ModelPerformance from './components/ModelPerformance';
 import MultiModelComparison from './components/MultiModelComparison';
 import {
   checkBackendHealth,
   predictImage,
+  fetchModelMetrics,
   explainImage,
   fetchDiseaseInfo,
   fetchModelMetrics,
@@ -19,7 +21,7 @@ import {
 import { AlertTriangle, RefreshCw, Leaf, ArrowRight, FlaskConical } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('diagnosis'); // 'diagnosis' | 'performance'
+  const [activeTab, setActiveTab] = useState('diagnosis');
   const [isBackendOnline, setIsBackendOnline] = useState(false);
   const [modelMetrics, setModelMetrics] = useState(null);
   const [selectedClassFocus, setSelectedClassFocus] = useState(null);
@@ -43,7 +45,11 @@ export default function App() {
   const [isMultiModelLoading, setIsMultiModelLoading] = useState(false);
   const [multiModelError, setMultiModelError] = useState(null);
 
-  // Monitor backend health
+  const updateBackendStatus = async () => {
+    const { healthy, modelLoaded } = await checkBackendHealth();
+    setIsBackendOnline(healthy && modelLoaded);
+  };
+
   useEffect(() => {
     let isMounted = true;
     const check = async () => {
@@ -52,6 +58,7 @@ export default function App() {
         setIsBackendOnline(healthy && modelLoaded);
       }
     };
+
     check();
     const interval = setInterval(check, 8000);
     return () => {
@@ -60,7 +67,6 @@ export default function App() {
     };
   }, []);
 
-  // Fetch model evaluation metrics on startup (with static fallback)
   useEffect(() => {
     let isMounted = true;
     fetchModelMetrics()
@@ -88,7 +94,6 @@ export default function App() {
     };
   }, []);
 
-  // Cleanup object URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -101,6 +106,11 @@ export default function App() {
     setError(null);
     setSelectedFile(file);
     setActiveSampleId(null);
+
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
   };
@@ -120,6 +130,57 @@ export default function App() {
     setIsMultiModelLoading(false);
     setIsExplainLoading(false);
     setError(null);
+  };
+
+  const runDiagnosis = async (file) => {
+    setIsLoading(true);
+    setError(null);
+    setPrediction(null);
+    setExplanation(null);
+    setDiseaseInfo(null);
+
+    try {
+      const predResult = await predictImage(file);
+      setPrediction(predResult);
+
+      const metricsResult = await fetchModelMetrics().catch((e) => {
+        console.warn('Metrics lookup failed:', e);
+        return predResult.validation_metrics || predResult.model_metrics || null;
+      });
+
+      setModelMetrics(metricsResult || predResult.validation_metrics || predResult.model_metrics || null);
+
+      const [explainResult, infoResult] = await Promise.all([
+        explainImage(file, predResult.raw_class).catch((e) => {
+          console.warn('Explain failed:', e);
+          return null;
+        }),
+        fetchDiseaseInfo(predResult.raw_class).catch((e) => {
+          console.warn('Info lookup failed:', e);
+          return null;
+        }),
+      ]);
+
+      setExplanation(explainResult);
+      setDiseaseInfo(infoResult);
+
+      setTimeout(() => {
+        const resultsElement = document.getElementById('results-section');
+        if (resultsElement) {
+          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Diagnosis error:', err);
+      setError(err.message || 'Unable to complete diagnosis. Please ensure the backend server is running.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!selectedFile) return;
+    runDiagnosis(selectedFile);
   };
 
   const handleSelectSample = async (sample) => {
@@ -224,29 +285,28 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8faf8]">
-      {/* Top Navigation */}
+    <div className="min-h-screen flex flex-col glass-shell">
       <Navbar
         isBackendOnline={isBackendOnline}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        modelMetrics={modelMetrics}
       />
 
-      {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 pb-16">
 
         {/* Backend offline warning if server unreachable */}
         {!isBackendOnline && (
-          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+          <div className="glass-panel mb-6 p-4 rounded-2xl bg-amber-50/45 border-amber-200/70 text-amber-900 text-xs flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                Backend server is connecting (target: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">{API_BASE_URL}</code>). Pre-computed metrics remain accessible.
+                Backend server is connecting (target: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">{API_BASE_URL}</code>).
               </span>
             </div>
             <button
-              onClick={() => checkBackendHealth().then((h) => setIsBackendOnline(h.healthy))}
-              className="px-2.5 py-1 bg-white rounded-lg border border-amber-300 font-medium hover:bg-amber-100 flex items-center space-x-1 cursor-pointer"
+              onClick={updateBackendStatus}
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-2 py-1 text-[11px] font-semibold hover:bg-amber-100"
             >
               <RefreshCw className="w-3 h-3" />
               <span>Retry</span>
@@ -254,10 +314,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 1: Leaf Diagnosis */}
         {activeTab === 'diagnosis' && (
           <div className="space-y-8 animate-fadeIn">
-            {/* Hero Section */}
             <div className="text-center max-w-2xl mx-auto mb-4">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
                 <Leaf className="w-3.5 h-3.5" />
@@ -288,14 +346,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* 1. Quick Sample Gallery */}
             <SampleGallery
               onSelectSample={handleSelectSample}
               activeSampleId={activeSampleId}
               isLoading={isLoading}
             />
 
-            {/* 2. Image Upload Box */}
             <ImageUploader
               selectedFile={selectedFile}
               previewUrl={previewUrl}
@@ -305,27 +361,14 @@ export default function App() {
               isLoading={isLoading}
             />
 
-            {/* Error Display */}
+            {isLoading && <LoadingState />}
+
             {error && (
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start space-x-3">
-                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <strong className="block font-bold text-sm mb-0.5">Diagnostic Error</strong>
-                  <span>{error}</span>
-                </div>
-                <button
-                  onClick={() => setError(null)}
-                  className="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 cursor-pointer"
-                >
-                  Dismiss
-                </button>
+              <div className="glass-panel p-4 rounded-2xl border border-rose-300 bg-rose-50 text-rose-900 text-sm">
+                {error}
               </div>
             )}
 
-            {/* 3. Loading Skeleton */}
-            {isLoading && <LoadingState />}
-
-            {/* 4. Diagnostic & Explanation Results */}
             {prediction && !isLoading && (
               <div id="results-section">
                 <ResultCard
@@ -365,7 +408,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 2: Model Performance */}
         {activeTab === 'performance' && (
           <ModelPerformance
             metrics={modelMetrics}
@@ -374,11 +416,9 @@ export default function App() {
             onSelectClassFocus={setSelectedClassFocus}
           />
         )}
-
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-stone-200 bg-white py-6 text-center text-xs text-stone-500">
+      <footer className="glass-panel border-x-0 border-b-0 rounded-t-3xl py-6 text-center text-xs text-stone-500">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">

@@ -188,7 +188,7 @@ export default function ResultCard({
                 <Eye className="w-4 h-4" />
               </div>
               <h2 className="text-base font-bold text-stone-900">
-                Visual Attention & Explainability (Grad-CAM)
+                Visual Focus
               </h2>
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
@@ -307,13 +307,13 @@ export default function ResultCard({
             </p>
           </div>
 
-          {/* Grad-CAM Overlay */}
+          {/* Visual focus overlay */}
           <div className="flex flex-col">
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-emerald-300/80 bg-stone-900 shadow-xs group">
               {!isExplainLoading && explanation?.heatmap_overlay ? (
                 <img
                   src={explanation.heatmap_overlay}
-                  alt="Grad-CAM Heatmap Overlay"
+                  alt="Visual focus overlay"
                   className="w-full h-full object-cover"
                 />
               ) : (
